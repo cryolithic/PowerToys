@@ -41,7 +41,7 @@ public sealed partial class Settings : ICommandSettings
             .Values
             .Where(s => s is ISettingsForm)
             .Select(s => s as ISettingsForm)
-            .Where(s => s != null)
+            .Where(s => s is not null)
             .Select(s => s!);
 
         var bodies = string.Join(",", settings
@@ -77,26 +77,41 @@ public sealed partial class Settings : ICommandSettings
             .Values
             .Where(s => s is ISettingsForm)
             .Select(s => s as ISettingsForm)
-            .Where(s => s != null)
+            .Where(s => s is not null)
             .Select(s => s!);
         var content = string.Join(",\n", settings.Select(s => s.ToState()));
         return $"{{\n{content}\n}}";
     }
 
+    /// <summary>
+    /// Applies persisted values, as read from the settings file.
+    /// </summary>
     public void Update(string data)
     {
+        Apply(data, static (setting, payload) => setting.Update(payload));
+    }
+
+    /// <summary>
+    /// Applies values submitted from the rendered settings card.
+    /// </summary>
+    internal void UpdateFromForm(string data)
+    {
+        Apply(data, static (setting, payload) => setting.UpdateFromForm(payload));
+    }
+
+    private void Apply(string data, Action<ISettingsForm, JsonObject> apply)
+    {
         var formInput = JsonNode.Parse(data)?.AsObject();
-        if (formInput == null)
+        if (formInput is null)
         {
             return;
         }
 
         foreach (var key in _settings.Keys)
         {
-            var value = _settings[key];
-            if (value is ISettingsForm f)
+            if (_settings[key] is ISettingsForm f)
             {
-                f.Update(formInput);
+                apply(f, formInput);
             }
         }
     }
@@ -116,8 +131,12 @@ public sealed partial class Settings : ICommandSettings
         public SettingsContentPage(Settings settings)
         {
             _settings = settings;
-            Name = "Settings";
+            Name = Properties.Resources.Settings;
             Icon = new IconInfo("\uE713"); // Settings icon
+
+            // When our settings change, make sure to let CmdPal know to
+            // retrieve the new forms
+            _settings.SettingsChanged += (s, e) => RaiseItemsChanged();
         }
     }
 

@@ -74,7 +74,7 @@ namespace Microsoft.PowerToys.PreviewHandler.Svg
         private RichTextBox _textBox;
 
         /// <summary>
-        /// Represent if an text box info bar is added for showing message.
+        /// Represent if a text box info bar is added for showing message.
         /// </summary>
         private bool _infoBarAdded;
 
@@ -157,7 +157,7 @@ namespace Microsoft.PowerToys.PreviewHandler.Svg
             {
                 _infoBarAdded = false;
 
-                // Add a info bar on top of the Preview if any blocked element is present.
+                // Add an info bar on top of the Preview if any blocked element is present.
                 if (blocked)
                 {
                     _infoBarAdded = true;

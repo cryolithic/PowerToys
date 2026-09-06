@@ -4,7 +4,7 @@
 
 using System;
 using ManagedCommon;
-using Microsoft.UI.Windowing;
+using Microsoft.PowerToys.Common.UI.Controls.Window;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using PowerToys.FileLocksmithUI.Helpers;
@@ -18,30 +18,26 @@ namespace FileLocksmithUI
         {
             InitializeComponent();
             mainPage.ViewModel.IsElevated = isElevated;
+            SetTitleBar(titleBar);
             ExtendsContentIntoTitleBar = true;
-            SetTitleBar(AppTitleBar);
-            Activated += MainWindow_Activated;
+            TitleBarHelper.SetPreferredTheme(this);
+
             AppWindow.SetIcon("Assets/FileLocksmith/Icon.ico");
             WindowHelpers.ForceTopBorder1PixelInsetOnWindows10(this.GetWindowHandle());
 
             var loader = ResourceLoaderInstance.ResourceLoader;
             var title = isElevated ? loader.GetString("AppAdminTitle") : loader.GetString("AppTitle");
-            Title = title;
-            AppTitleTextBlock.Text = title;
-        }
 
-        private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
-        {
-            if (args.WindowActivationState == WindowActivationState.Deactivated)
+            // Guard against an empty title: ResourceLoader.GetString returns "" when the resource
+            // map can't be resolved, and an empty native window title can fault the WinUI TitleBar
+            // control while it reads AppWindow.Title during a deferred layout pass.
+            if (string.IsNullOrEmpty(title))
             {
-                AppTitleTextBlock.Foreground =
-                    (SolidColorBrush)App.Current.Resources["WindowCaptionForegroundDisabled"];
+                title = "File Locksmith";
             }
-            else
-            {
-                AppTitleTextBlock.Foreground =
-                    (SolidColorBrush)App.Current.Resources["WindowCaptionForeground"];
-            }
+
+            Title = title;
+            titleBar.Title = title;
         }
 
         public void Dispose()

@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using global::PowerToys.GPOWrapper;
 using ManagedCommon;
+using Microsoft.PowerToys.Settings.UI.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Settings.UI.Library.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library.Interfaces;
@@ -13,13 +15,13 @@ using Microsoft.PowerToys.Settings.UI.Library.ViewModels.Commands;
 
 namespace Microsoft.PowerToys.Settings.UI.ViewModels
 {
-    public partial class FancyZonesViewModel : Observable
+    public partial class FancyZonesViewModel : PageViewModelBase
     {
+        protected override string ModuleName => FancyZonesSettings.ModuleName;
+
         private SettingsUtils SettingsUtils { get; set; }
 
         private GeneralSettings GeneralSettingsConfig { get; set; }
-
-        private const string ModuleName = FancyZonesSettings.ModuleName;
 
         public ButtonClickCommand LaunchEditorEventHandler { get; set; }
 
@@ -88,10 +90,13 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             _excludedApps = Settings.Properties.FancyzonesExcludedApps.Value;
             _systemTheme = Settings.Properties.FancyzonesSystemTheme.Value;
             _showZoneNumber = Settings.Properties.FancyzonesShowZoneNumber.Value;
-            EditorHotkey = Settings.Properties.FancyzonesEditorHotkey.Value;
             _windowSwitching = Settings.Properties.FancyzonesWindowSwitching.Value;
+            _monitorRotation = Settings.Properties.FancyzonesMonitorRotation.Value;
+
+            EditorHotkey = Settings.Properties.FancyzonesEditorHotkey.Value;
             NextTabHotkey = Settings.Properties.FancyzonesNextTabHotkey.Value;
             PrevTabHotkey = Settings.Properties.FancyzonesPrevTabHotkey.Value;
+            MonitorRotationHotkey = Settings.Properties.FancyzonesMonitorRotationHotkey.Value;
 
             // set the callback functions value to handle outgoing IPC message.
             SendConfigMSG = ipcMSGCallBackFunc;
@@ -134,6 +139,16 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public override Dictionary<string, HotkeySettings[]> GetAllHotkeySettings()
+        {
+            var hotkeysDict = new Dictionary<string, HotkeySettings[]>
+            {
+                [ModuleName] = [EditorHotkey, NextTabHotkey, PrevTabHotkey, MonitorRotationHotkey],
+            };
+
+            return hotkeysDict;
+        }
+
         private GpoRuleConfigured _enabledGpoRuleConfiguration;
         private bool _enabledStateIsGPOConfigured;
         private bool _isEnabled;
@@ -167,6 +182,8 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private bool _windowSwitching;
         private HotkeySettings _nextTabHotkey;
         private HotkeySettings _prevTabHotkey;
+        private bool _monitorRotation;
+        private HotkeySettings _monitorRotationHotkey;
         private string _zoneInActiveColor;
         private string _zoneBorderColor;
         private string _zoneHighlightColor;
@@ -200,6 +217,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
                     OnPropertyChanged(nameof(SnapHotkeysCategoryEnabled));
                     OnPropertyChanged(nameof(QuickSwitchEnabled));
                     OnPropertyChanged(nameof(WindowSwitchingCategoryEnabled));
+                    OnPropertyChanged(nameof(MonitorRotationCategoryEnabled));
                 }
             }
         }
@@ -230,6 +248,14 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             get
             {
                 return _isEnabled && _windowSwitching;
+            }
+        }
+
+        public bool MonitorRotationCategoryEnabled
+        {
+            get
+            {
+                return _isEnabled && _monitorRotation;
             }
         }
 
@@ -763,7 +789,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             {
                 if (value != _editorHotkey)
                 {
-                    if (value == null || value.IsEmpty())
+                    if (value == null)
                     {
                         _editorHotkey = FZConfigProperties.DefaultEditorHotkeyValue;
                     }
@@ -809,7 +835,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             {
                 if (value != _nextTabHotkey)
                 {
-                    if (value == null || value.IsEmpty())
+                    if (value == null)
                     {
                         _nextTabHotkey = FZConfigProperties.DefaultNextTabHotkeyValue;
                     }
@@ -835,7 +861,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             {
                 if (value != _prevTabHotkey)
                 {
-                    if (value == null || value.IsEmpty())
+                    if (value == null)
                     {
                         _prevTabHotkey = FZConfigProperties.DefaultPrevTabHotkeyValue;
                     }
@@ -845,6 +871,52 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
                     }
 
                     Settings.Properties.FancyzonesPrevTabHotkey.Value = _prevTabHotkey;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool MonitorRotation
+        {
+            get
+            {
+                return _monitorRotation;
+            }
+
+            set
+            {
+                if (value != _monitorRotation)
+                {
+                    _monitorRotation = value;
+
+                    Settings.Properties.FancyzonesMonitorRotation.Value = _monitorRotation;
+                    NotifyPropertyChanged();
+                    OnPropertyChanged(nameof(MonitorRotationCategoryEnabled));
+                }
+            }
+        }
+
+        public HotkeySettings MonitorRotationHotkey
+        {
+            get
+            {
+                return _monitorRotationHotkey;
+            }
+
+            set
+            {
+                if (value != _monitorRotationHotkey)
+                {
+                    if (value == null)
+                    {
+                        _monitorRotationHotkey = FZConfigProperties.DefaultMonitorRotationHotkeyValue;
+                    }
+                    else
+                    {
+                        _monitorRotationHotkey = value;
+                    }
+
+                    Settings.Properties.FancyzonesMonitorRotationHotkey.Value = _monitorRotationHotkey;
                     NotifyPropertyChanged();
                 }
             }

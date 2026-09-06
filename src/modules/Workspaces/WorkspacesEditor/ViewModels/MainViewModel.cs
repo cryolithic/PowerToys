@@ -18,12 +18,12 @@ using ManagedCommon;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Telemetry;
 using WorkspacesCsharpLibrary;
-using WorkspacesEditor.Data;
+using WorkspacesCsharpLibrary.Data;
+using WorkspacesCsharpLibrary.Utils;
 using WorkspacesEditor.Models;
 using WorkspacesEditor.Telemetry;
 using WorkspacesEditor.Utils;
-
-using static WorkspacesEditor.Data.WorkspacesData;
+using static WorkspacesCsharpLibrary.Data.WorkspacesData;
 
 namespace WorkspacesEditor.ViewModels
 {
@@ -133,7 +133,7 @@ namespace WorkspacesEditor.ViewModels
                 _orderByIndex = value;
                 OnPropertyChanged(new PropertyChangedEventArgs(nameof(WorkspacesView)));
                 settings.Properties.SortBy = (WorkspacesProperties.SortByProperty)value;
-                settings.Save(new SettingsUtils());
+                settings.Save(SettingsUtils.Default);
             }
         }
 
@@ -160,7 +160,7 @@ namespace WorkspacesEditor.ViewModels
         {
             foreach (Project project in Workspaces)
             {
-                project.Initialize(App.ThemeManager.GetCurrentTheme());
+                project.Initialize(App.GetCurrentTheme());
             }
 
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(WorkspacesView)));
@@ -188,33 +188,35 @@ namespace WorkspacesEditor.ViewModels
             editedProject.Applications = projectToSave.Applications.Where(x => x.IsIncluded).ToList();
 
             editedProject.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs("AppsCountString"));
-            editedProject.Initialize(App.ThemeManager.GetCurrentTheme());
+            editedProject.Initialize(App.GetCurrentTheme());
             _workspacesEditorIO.SerializeWorkspaces(Workspaces.ToList());
             ApplyShortcut(editedProject);
         }
 
+        private string GetDesktopShortcutAddress(Project project) => Path.Combine(FolderUtils.Desktop(), project.Name + ".lnk");
+
+        private string GetShortcutStoreAddress(Project project)
+        {
+            var dataFolder = FolderUtils.DataFolder();
+            Directory.CreateDirectory(dataFolder);
+            var shortcutStoreFolder = Path.Combine(dataFolder, "WorkspacesIcons");
+            Directory.CreateDirectory(shortcutStoreFolder);
+            return Path.Combine(shortcutStoreFolder, project.Id + ".ico");
+        }
+
         private void ApplyShortcut(Project project)
         {
-            string basePath = AppDomain.CurrentDomain.BaseDirectory;
-            string shortcutAddress = Path.Combine(FolderUtils.Desktop(), project.Name + ".lnk");
-            string shortcutIconFilename = Path.Combine(FolderUtils.Temp(), project.Id + ".ico");
-
             if (!project.IsShortcutNeeded)
             {
-                if (File.Exists(shortcutIconFilename))
-                {
-                    File.Delete(shortcutIconFilename);
-                }
-
-                if (File.Exists(shortcutAddress))
-                {
-                    File.Delete(shortcutAddress);
-                }
-
+                RemoveShortcut(project);
                 return;
             }
 
-            Bitmap icon = WorkspacesIcon.DrawIcon(WorkspacesIcon.IconTextFromProjectName(project.Name), App.ThemeManager.GetCurrentTheme());
+            var basePath = AppDomain.CurrentDomain.BaseDirectory;
+            var shortcutAddress = GetDesktopShortcutAddress(project);
+            var shortcutIconFilename = GetShortcutStoreAddress(project);
+
+            Bitmap icon = WorkspacesIcon.DrawIcon(WorkspacesIcon.IconTextFromProjectName(project.Name), App.GetCurrentTheme());
             WorkspacesIcon.SaveIcon(icon, shortcutIconFilename);
 
             try
@@ -268,7 +270,7 @@ namespace WorkspacesEditor.ViewModels
                     project.EditorWindowTitle = Properties.Resources.EditWorkspace;
                     editPage.DataContext = project;
                     CheckShortcutPresence(project);
-                    project.Initialize(App.ThemeManager.GetCurrentTheme());
+                    project.Initialize(App.GetCurrentTheme());
                 }
                 else
                 {
@@ -281,7 +283,7 @@ namespace WorkspacesEditor.ViewModels
         {
             CheckShortcutPresence(projectBeforeLaunch);
             editPage.DataContext = projectBeforeLaunch;
-            projectBeforeLaunch.Initialize(App.ThemeManager.GetCurrentTheme());
+            projectBeforeLaunch.Initialize(App.GetCurrentTheme());
         }
 
         public void EditProject(Project selectedProject, bool isNewlyCreated = false)
@@ -321,7 +323,7 @@ namespace WorkspacesEditor.ViewModels
             }
 
             selectedProject.EditorWindowTitle = isNewlyCreated ? Properties.Resources.CreateWorkspace : Properties.Resources.EditWorkspace;
-            selectedProject.Initialize(App.ThemeManager.GetCurrentTheme());
+            selectedProject.Initialize(App.GetCurrentTheme());
 
             CheckShortcutPresence(selectedProject);
 
@@ -340,7 +342,7 @@ namespace WorkspacesEditor.ViewModels
         public void AddNewProject(Project project)
         {
             project.Applications.RemoveAll(app => !app.IsIncluded);
-            project.Initialize(App.ThemeManager.GetCurrentTheme());
+            project.Initialize(App.GetCurrentTheme());
             Workspaces.Add(project);
             _workspacesEditorIO.SerializeWorkspaces(Workspaces.ToList());
             TempProjectData.DeleteTempFile();
@@ -360,8 +362,8 @@ namespace WorkspacesEditor.ViewModels
 
         private void RemoveShortcut(Project selectedProject)
         {
-            string shortcutAddress = Path.Combine(FolderUtils.Desktop(), selectedProject.Name + ".lnk");
-            string shortcutIconFilename = Path.Combine(FolderUtils.Temp(), selectedProject.Id + ".ico");
+            string shortcutAddress = GetDesktopShortcutAddress(selectedProject);
+            string shortcutIconFilename = GetShortcutStoreAddress(selectedProject);
 
             if (File.Exists(shortcutIconFilename))
             {
@@ -435,7 +437,11 @@ namespace WorkspacesEditor.ViewModels
         private void RunSnapshotTool(bool isExistingProjectLaunched)
         {
             Process process = new Process();
-            process.StartInfo = new ProcessStartInfo(@".\PowerToys.WorkspacesSnapshotTool.exe");
+
+            var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+            var snapshotUtilsPath = Path.Combine(exeDir, "PowerToys.WorkspacesSnapshotTool.exe");
+
+            process.StartInfo = new ProcessStartInfo(snapshotUtilsPath);
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.Arguments = isExistingProjectLaunched ? $"{(int)InvokePoint.LaunchAndEdit}" : string.Empty;
 
@@ -489,10 +495,10 @@ namespace WorkspacesEditor.ViewModels
             {
                 var bounds = screen.Bounds;
                 OverlayWindow overlayWindow = new OverlayWindow();
-                overlayWindow.Top = bounds.Top;
-                overlayWindow.Left = bounds.Left;
-                overlayWindow.Width = bounds.Width;
-                overlayWindow.Height = bounds.Height;
+
+                // Use DPI-unaware positioning to fix overlay on mixed-DPI multi-monitor setups
+                overlayWindow.SetTargetBounds(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+
                 overlayWindow.ShowActivated = true;
                 overlayWindow.Topmost = true;
                 overlayWindow.Show();

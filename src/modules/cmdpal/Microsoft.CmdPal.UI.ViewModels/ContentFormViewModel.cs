@@ -1,11 +1,14 @@
-﻿// Copyright (c) Microsoft Corporation
+// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using AdaptiveCards.ObjectModel.WinUI3;
 using AdaptiveCards.Templating;
 using CommunityToolkit.Mvvm.Messaging;
+using ManagedCommon;
+using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Models;
 using Microsoft.CommandPalette.Extensions;
@@ -28,47 +31,126 @@ public partial class ContentFormViewModel(IFormContent _form, WeakReference<IPag
 
     public AdaptiveCardParseResult? Card { get; private set; }
 
+    private static string Serialize(string? s) =>
+        JsonSerializer.Serialize(s, JsonSerializationContext.Default.String);
+
+    private static bool TryBuildCard(
+        string templateJson,
+        string dataJson,
+        out AdaptiveCardParseResult? card,
+        out Exception? error)
+    {
+        card = null;
+        error = null;
+
+        try
+        {
+            var template = new AdaptiveCardTemplate(templateJson);
+            var cardJson = template.Expand(dataJson);
+            card = AdaptiveCard.FromJsonString(
+                cardJson,
+                AdaptiveCardParserRegistrations.ElementParsers,
+                AdaptiveCardParserRegistrations.ActionParsers);
+
+            foreach (var warning in card.Warnings)
+            {
+                Logger.LogWarning($"Adaptive Card parse warning ({warning.StatusCode}): {warning.Message}");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError("Error building card from template", ex);
+            error = ex;
+            return false;
+        }
+    }
+
     public override void InitializeProperties()
     {
         var model = _formModel.Unsafe;
-        if (model == null)
+        if (model is null)
         {
             return;
         }
 
-        try
-        {
-            TemplateJson = model.TemplateJson;
-            StateJson = model.StateJson;
-            DataJson = model.DataJson;
+        TemplateJson = model.TemplateJson;
+        StateJson = model.StateJson;
+        DataJson = model.DataJson;
 
-            AdaptiveCardTemplate template = new(TemplateJson);
-            var cardJson = template.Expand(DataJson);
-            Card = AdaptiveCard.FromJsonString(cardJson);
-        }
-        catch (Exception e)
-        {
-            // If we fail to parse the card JSON, then display _our own card_
-            // with the exception
-            AdaptiveCardTemplate template = new(ErrorCardJson);
-
-            // todo: we could probably stick Card.Errors in there too
-            var dataJson = $$"""
-{
-    "error_message": {{JsonSerializer.Serialize(e.Message)}},
-    "error_stack": {{JsonSerializer.Serialize(e.StackTrace)}},
-    "inner_exception": {{JsonSerializer.Serialize(e.InnerException?.Message)}},
-    "template_json": {{JsonSerializer.Serialize(TemplateJson)}},
-    "data_json": {{JsonSerializer.Serialize(DataJson)}}
-}
-""";
-            var cardJson = template.Expand(dataJson);
-            Card = AdaptiveCard.FromJsonString(cardJson);
-        }
+        RenderCard();
 
         UpdateProperty(nameof(Card));
+
+        model.PropChanged += Model_PropChanged;
     }
 
+    private void RenderCard()
+    {
+        if (TryBuildCard(TemplateJson, DataJson, out var builtCard, out var renderingError))
+        {
+            Card = builtCard;
+            UpdateProperty(nameof(Card));
+            return;
+        }
+
+        var errorPayload = $$"""
+    {
+        "error_message": {{Serialize(renderingError!.Message)}},
+        "error_stack":   {{Serialize(renderingError.StackTrace)}},
+        "inner_exception": {{Serialize(renderingError.InnerException?.Message)}},
+        "template_json": {{Serialize(TemplateJson)}},
+        "data_json":     {{Serialize(DataJson)}}
+    }
+    """;
+
+        if (TryBuildCard(ErrorCardJson, errorPayload, out var errorCard, out var _))
+        {
+            Card = errorCard;
+            UpdateProperty(nameof(Card));
+            return;
+        }
+    }
+
+    private void Model_PropChanged(object sender, IPropChangedEventArgs args)
+    {
+        try
+        {
+            FetchProperty(args.PropertyName);
+        }
+        catch (Exception ex)
+        {
+            ShowException(ex);
+        }
+    }
+
+    protected virtual void FetchProperty(string propertyName)
+    {
+        var model = this._formModel.Unsafe;
+        if (model is null)
+        {
+            return; // throw?
+        }
+
+        switch (propertyName)
+        {
+            case nameof(DataJson):
+                DataJson = model.DataJson;
+                RenderCard();
+                break;
+            case nameof(TemplateJson):
+                TemplateJson = model.TemplateJson;
+                RenderCard();
+                break;
+        }
+
+        UpdateProperty(propertyName);
+    }
+
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AdaptiveOpenUrlAction))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AdaptiveSubmitAction))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AdaptiveExecuteAction))]
     public void HandleSubmit(IAdaptiveActionElement action, JsonObject inputs)
     {
         if (action is AdaptiveOpenUrlAction openUrlAction)
@@ -90,7 +172,9 @@ public partial class ContentFormViewModel(IFormContent _form, WeakReference<IPag
                     var model = _formModel.Unsafe!;
                     if (model != null)
                     {
-                        var result = model.SubmitForm(inputString, dataString);
+                        var result = model is IFormContent2 form2
+                            ? form2.SubmitAction(action.Id, inputString, dataString)
+                            : model.SubmitForm(inputString, dataString);
                         WeakReferenceMessenger.Default.Send<HandleCommandResultMessage>(new(new(result)));
                     }
                 }

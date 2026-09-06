@@ -1,6 +1,7 @@
 # COLORS
 
 argb
+Bgr
 bgra
 BLACKONWHITE
 BLUEGRAY
@@ -16,8 +17,9 @@ LIGHTTURQUOISE
 NCol
 OLIVEGREEN
 PALEBLUE
-PArgb
-Pbgra
+pargb
+pbgra
+SRGBTo
 WHITEONBLACK
 
 
@@ -28,13 +30,18 @@ RUS
 
 AYUV
 bak
+HDP
 Bcl
+bgcode
+Deflatealgorithm
 exa
 exabyte
 Gbits
 Gbps
 gcode
+Heatshrink
 Mbits
+Kbits
 MBs
 mkv
 msix
@@ -44,6 +51,7 @@ resw
 resx
 srt
 Stereolithography
+taskmgr
 terabyte
 UYVY
 xbf
@@ -53,6 +61,8 @@ YVU
 YVYU
 zipfolder
 CODEOWNERS
+VNext
+vnext
 
 # FONTS
 
@@ -89,20 +99,36 @@ onefuzzingestionpreparationtool
 OTP
 Yubi
 Yubico
+Perplexity
+Groq
 svgl
+devhome
 
 # KEYS
 
 altdown
 BUTTONUP
+bafunctions
+Baf
+Bitness
+BUILDARCHSHORT
 CTRLALTDEL
 Ctrls
+CSilent
+CBal
+CREATEBAFUNCTIONS
+CPrereq
+dirutil
+DUtil
+Editbox
 EXSEL
 HOLDENTER
 HOLDESC
 HOLDSPACE
 HOLDBACKSPACE
+IDIGNORE
 KBDLLHOOKSTRUCT
+keydowns
 keyevent
 LAlt
 LBUTTON
@@ -113,12 +139,16 @@ LCONTROL
 LCtrl
 LEFTDOWN
 LEFTUP
+locutil
+logutil
+msimg
 MBUTTON
 MBUTTONDBLCLK
 MBUTTONDOWN
 MBUTTONUP
 MIDDLEDOWN
 MIDDLEUP
+memutil
 NCRBUTTONDBLCLK
 NCRBUTTONDOWN
 NCRBUTTONUP
@@ -131,8 +161,19 @@ RCONTROL
 RCtrl
 RIGHTDOWN
 RIGHTUP
+Richedit
+rgwz
+resrutil
+srd
+scz
+shelutil
+thmutil
+uriutil
 VKTAB
+wcautil
+wcsnlen
 winkey
+wininet
 WMKEYDOWN
 WMKEYUP
 WMSYSKEYDOWN
@@ -142,9 +183,16 @@ XBUTTONDBLCLK
 XBUTTONDOWN
 XBUTTONUP
 XDOWN
+xmlutil
 
 # Prefix
 pcs
+
+# EXPRTK / C++ MATH
+
+ifunction
+isinf
+isnan
 
 # User32.SYSTEM_METRICS_INDEX.cs
 
@@ -261,6 +309,13 @@ pwa
 
 AOT
 Aot
+ify
+LAF
+Laf
+languagemodel
+philm
+phisilica
+TFM
 
 # YML
 onefuzz
@@ -268,9 +323,137 @@ onefuzz
 # NameInCode
 leilzh
 mengyuanchen
+contoso
 
 # DllName
 testhost
+Testably
 
 #Tools
 OIP
+xef
+xes
+PACKAGEVERSIONNUMBER
+APPXMANIFESTVERSION
+PROGMAN
+ROOTOWNER
+
+# MRU lists
+CACHEWRITE
+MRUCMPPROC
+MRUINFO
+REGSTR
+
+#Xaml
+NVI
+Storyboards
+
+# Misc Win32 APIs and PInvokes
+DEFAULTTONEAREST
+INVOKEIDLIST
+LCMAP
+MEMORYSTATUSEX
+ABE
+Mdt
+HTCAPTION
+POSCHANGED
+QPC
+QUERYPOS
+SETAUTOHIDEBAR
+ULW
+WINDOWPOS
+WINEVENTPROC
+WORKERW
+FULLSCREENAPP
+ACLO
+CACLI
+DOENVSUBST
+FILESYSONLY
+URLIS
+WAITTIMEOUT
+DEFAULTTONEAREST
+DWRITE
+LWIN
+VCENTER
+VREDRAW
+
+# COM/WinRT interface prefixes and type fragments
+BAlt
+BShift
+Cmanifest
+Cmodule
+Cuuid
+Dng
+IApplication
+IDisposable
+IEnum
+IFolder
+IInitialize
+IMemory
+IOle
+ipreview
+IProperty
+IShell
+ithumbnail
+IVirtual
+
+# Test frameworks
+MSTEST
+
+# PowerRename metadata pattern abbreviations (used in tests and regex patterns)
+DDDD
+FFF
+HHH
+riday
+YYY
+
+# Release versioning identifiers and format fragments
+DAILYVERSIONSEQUENCE
+DDNNN
+Mdd
+SOURCEBRANCH
+SOURCEVERSION
+VERSIONDATE
+YDDD
+YDDDB
+YYMM
+
+# Unicode
+precomposed
+
+# names of characters
+zwsp
+
+# mermaid
+autonumber
+
+# GitHub issue/PR commands
+azp
+feedbackhub
+needinfo
+reportbug
+
+#ffmpeg
+crf
+nostdin
+
+# Performance counter keys
+engtype
+Nonpaged
+
+# XAML
+Untargeted
+
+# Program names
+SEARCHHOST
+SHELLEXPERIENCEHOST
+SHELLHOST
+STARTMENUEXPERIENCEHOST
+WIDGETBOARD
+
+# URIs
+actioncenter
+
+# New+ shell PIDL type names
+PCUITEMID
+PITEMID

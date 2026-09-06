@@ -20,6 +20,7 @@ namespace Microsoft.PowerToys.Settings.UI.OOBE.Enums
         FileExplorer,
         ImageResizer,
         KBM,
+        LightSwitch,
         MouseUtils,
         MouseWithoutBorders,
         Peek,
@@ -31,9 +32,11 @@ namespace Microsoft.PowerToys.Settings.UI.OOBE.Enums
         MeasureTool,
         Hosts,
         Workspaces,
-        WhatsNew,
         RegistryPreview,
+        PowerDisplay,
+        GrabAndMove,
         NewPlus,
         ZoomIt,
+        AltWindowCycle,
     }
 }

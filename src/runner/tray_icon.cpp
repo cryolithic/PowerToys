@@ -2,15 +2,23 @@
 #include "Generated files/resource.h"
 #include "settings_window.h"
 #include "tray_icon.h"
+#include "general_settings.h"
 #include "centralized_hotkeys.h"
 #include "centralized_kb_hook.h"
+#include "quick_access_host.h"
+#include "hotkey_conflict_detector.h"
+#include "trace.h"
 #include <Windows.h>
 
 #include <common/utils/resources.h>
+#include <common/utils/window.h>
 #include <common/version/version.h>
 #include <common/logger/logger.h>
 #include <common/utils/elevation.h>
+#include <common/Themes/theme_listener.h>
+#include <common/Themes/theme_helpers.h>
 #include "bug_report.h"
+#include <common/updating/updateState.h>
 
 namespace
 {
@@ -28,6 +36,10 @@ namespace
     NOTIFYICONDATAW tray_icon_data;
     bool tray_icon_created = false;
 
+    // Set when Windows confirms that the full session is ending so WM_DESTROY
+    // can skip cross-process cleanup the OS is already performing in parallel.
+    bool g_system_session_ending = false;
+
     bool about_box_shown = false;
 
     HMENU h_menu = nullptr;
@@ -35,7 +47,11 @@ namespace
     bool double_click_timer_running = false;
     bool double_clicked = false;
     POINT tray_icon_click_point;
+    std::optional<bool> last_quick_access_state; // Track the last known Quick Access state
 
+    static ThemeListener theme_listener;
+    static bool theme_adaptive_enabled = false;
+    static bool update_available = false;
 }
 
 // Struct to fill with callback and the data. The window_proc is responsible for cleaning it.
@@ -68,9 +84,9 @@ void change_menu_item_text(const UINT item_id, wchar_t* new_text)
     SetMenuItemInfoW(h_menu, item_id, false, &menuitem);
 }
 
-void open_quick_access_flyout_window(const POINT flyout_position)
+void open_quick_access_flyout_window()
 {
-    open_settings_window(std::nullopt, true, flyout_position);
+    QuickAccessHost::show();
 }
 
 void handle_tray_command(HWND window, const WPARAM command_id, LPARAM lparam)
@@ -80,10 +96,10 @@ void handle_tray_command(HWND window, const WPARAM command_id, LPARAM lparam)
     case ID_SETTINGS_MENU_COMMAND:
     {
         std::wstring settings_window{ winrt::to_hstring(ESettingsWindowNames_to_string(static_cast<ESettingsWindowNames>(lparam))) };
-        open_settings_window(settings_window, false);
+        open_settings_window(settings_window);
     }
     break;
-    case ID_EXIT_MENU_COMMAND:
+    case ID_CLOSE_MENU_COMMAND:
         if (h_menu)
         {
             DestroyMenu(h_menu);
@@ -112,9 +128,12 @@ void handle_tray_command(HWND window, const WPARAM command_id, LPARAM lparam)
     }
     case ID_QUICK_ACCESS_MENU_COMMAND:
     {
-        POINT mouse_pointer;
-        GetCursorPos(&mouse_pointer);
-        open_quick_access_flyout_window(mouse_pointer);
+        open_quick_access_flyout_window();
+        break;
+    }
+    case ID_UPDATE_MENU_COMMAND:
+    {
+        open_settings_window(std::wstring{ L"Overview" });
         break;
     }
     }
@@ -125,12 +144,28 @@ void click_timer_elapsed()
     double_click_timer_running = false;
     if (!double_clicked)
     {
-        open_quick_access_flyout_window(tray_icon_click_point);
+        // Log telemetry for single click (confirmed it's not a double click)
+        Trace::TrayIconLeftClick(get_general_settings().enableQuickAccess);
+
+        if (get_general_settings().enableQuickAccess)
+        {
+            open_quick_access_flyout_window();
+        }
+        else
+        {
+            open_settings_window(std::nullopt);
+        }
     }
 }
 
 LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
+    LRESULT session_end_result = 0;
+    if (handle_stateless_session_end_message(window, message, wparam, lparam, session_end_result, &g_system_session_ending))
+    {
+        return session_end_result;
+    }
+
     switch (message)
     {
     case WM_HOTKEY:
@@ -150,12 +185,23 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
         }
         break;
     case WM_DESTROY:
-        if (tray_icon_created)
+        // On OS-initiated shutdown skip cross-process cleanup: the shell is tearing
+        // down and close_settings_window() blocks up to 1.5s waiting on
+        // PowerToys.Settings.exe, which the OS is reaping in parallel. That wait, plus
+        // Shell_NotifyIcon during explorer teardown, would burn the limited quiesce
+        // budget and trip APPLICATION_HANG_QUIESCE. PostQuitMessage alone unwinds the
+        // loop in milliseconds. User-initiated Exit and Restart Manager
+        // ENDSESSION_CLOSEAPP requests keep the full graceful cleanup.
+        Logger::info(L"Runner WM_DESTROY, system_session_ending={}", g_system_session_ending);
+        if (!g_system_session_ending)
         {
-            Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
-            tray_icon_created = false;
+            if (tray_icon_created)
+            {
+                Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
+                tray_icon_created = false;
+            }
+            close_settings_window();
         }
-        close_settings_window();
         PostQuitMessage(0);
         break;
     case WM_CLOSE:
@@ -183,6 +229,21 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
             case WM_RBUTTONUP:
             case WM_CONTEXTMENU:
             {
+                bool quick_access_enabled = get_general_settings().enableQuickAccess;
+
+                // Log telemetry
+                Trace::TrayIconRightClick(quick_access_enabled);
+
+                // Reload menu if Quick Access state has changed or is first time
+                if (h_menu && (!last_quick_access_state.has_value() || quick_access_enabled != last_quick_access_state.value()))
+                {
+                    DestroyMenu(h_menu);
+                    h_menu = nullptr;
+                    h_sub_menu = nullptr;
+                }
+
+                last_quick_access_state = quick_access_enabled;
+
                 if (!h_menu)
                 {
                     h_menu = LoadMenu(reinterpret_cast<HINSTANCE>(&__ImageBase), MAKEINTRESOURCE(ID_TRAY_MENU));
@@ -190,20 +251,62 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
                 if (h_menu)
                 {
                     static std::wstring settings_menuitem_label = GET_RESOURCE_STRING(IDS_SETTINGS_MENU_TEXT);
-                    static std::wstring exit_menuitem_label = GET_RESOURCE_STRING(IDS_EXIT_MENU_TEXT);
+                    static std::wstring settings_menuitem_label_leftclick = GET_RESOURCE_STRING(IDS_SETTINGS_MENU_TEXT_LEFTCLICK);
+                    static std::wstring close_menuitem_label = GET_RESOURCE_STRING(IDS_CLOSE_MENU_TEXT);
                     static std::wstring submit_bug_menuitem_label = GET_RESOURCE_STRING(IDS_SUBMIT_BUG_TEXT);
                     static std::wstring documentation_menuitem_label = GET_RESOURCE_STRING(IDS_DOCUMENTATION_MENU_TEXT);
                     static std::wstring quick_access_menuitem_label = GET_RESOURCE_STRING(IDS_QUICK_ACCESS_MENU_TEXT);
-                    change_menu_item_text(ID_SETTINGS_MENU_COMMAND, settings_menuitem_label.data());
-                    change_menu_item_text(ID_EXIT_MENU_COMMAND, exit_menuitem_label.data());
+
+                    // Update Settings menu text based on Quick Access state
+                    if (quick_access_enabled)
+                    {
+                        change_menu_item_text(ID_SETTINGS_MENU_COMMAND, settings_menuitem_label.data());
+                    }
+                    else
+                    {
+                        change_menu_item_text(ID_SETTINGS_MENU_COMMAND, settings_menuitem_label_leftclick.data());
+                    }
+
+                    change_menu_item_text(ID_CLOSE_MENU_COMMAND, close_menuitem_label.data());
                     change_menu_item_text(ID_REPORT_BUG_COMMAND, submit_bug_menuitem_label.data());
+                    bool bug_report_disabled = is_bug_report_running();
+                    EnableMenuItem(h_sub_menu, ID_REPORT_BUG_COMMAND, MF_BYCOMMAND | (bug_report_disabled ? MF_GRAYED : MF_ENABLED));
                     change_menu_item_text(ID_DOCUMENTATION_MENU_COMMAND, documentation_menuitem_label.data());
                     change_menu_item_text(ID_QUICK_ACCESS_MENU_COMMAND, quick_access_menuitem_label.data());
+
+                    // Hide or show Quick Access menu item based on setting
+                    if (!h_sub_menu)
+                    {
+                        h_sub_menu = GetSubMenu(h_menu, 0);
+                    }
+                    if (!quick_access_enabled)
+                    {
+                        // Remove Quick Access menu item when disabled
+                        DeleteMenu(h_sub_menu, ID_QUICK_ACCESS_MENU_COMMAND, MF_BYCOMMAND);
+                    }
                 }
                 if (!h_sub_menu)
                 {
                     h_sub_menu = GetSubMenu(h_menu, 0);
                 }
+
+                // Dynamically add/remove "Update available" menu item and its separator
+                DeleteMenu(h_sub_menu, ID_UPDATE_MENU_COMMAND, MF_BYCOMMAND);
+                // Remove the separator right after the update item (position 0 after deletion)
+                if (GetMenuItemCount(h_sub_menu) > 0)
+                {
+                    MENUITEMINFOW mii = { .cbSize = sizeof(mii), .fMask = MIIM_FTYPE };
+                    if (GetMenuItemInfoW(h_sub_menu, 0, TRUE, &mii) && (mii.fType & MFT_SEPARATOR))
+                    {
+                        DeleteMenu(h_sub_menu, 0, MF_BYPOSITION);
+                    }
+                }
+                if (update_available)
+                {
+                    InsertMenuW(h_sub_menu, 0, MF_BYPOSITION | MF_STRING, ID_UPDATE_MENU_COMMAND, GET_RESOURCE_STRING(IDS_UPDATE_AVAILABLE_MENU_TEXT).c_str());
+                    InsertMenuW(h_sub_menu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
+                }
+
                 POINT mouse_pointer;
                 GetCursorPos(&mouse_pointer);
                 SetForegroundWindow(window); // Needed for the context menu to disappear.
@@ -215,9 +318,6 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
                 // ignore event if this is the second click of a double click
                 if (!double_click_timer_running)
                 {
-                    // save the cursor position for sending where to show the popup.
-                    GetCursorPos(&tray_icon_click_point);
-
                     // start timer for detecting single or double click
                     double_click_timer_running = true;
                     double_clicked = false;
@@ -232,8 +332,11 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
             }
             case WM_LBUTTONDBLCLK:
             {
+                // Log telemetry
+                Trace::TrayIconDoubleClick(get_general_settings().enableQuickAccess);
+
                 double_clicked = true;
-                open_settings_window(std::nullopt, false);
+                open_settings_window(std::nullopt);
                 break;
             }
             break;
@@ -259,10 +362,62 @@ LRESULT __stdcall tray_icon_window_proc(HWND window, UINT message, WPARAM wparam
     return DefWindowProc(window, message, wparam, lparam);
 }
 
-void start_tray_icon(bool isProcessElevated)
+static HICON get_icon(Theme theme)
 {
+    std::wstring icon_path = get_module_folderpath();
+    if (theme == Theme::Dark)
+    {
+        icon_path += update_available ? L"\\svgs\\PowerToysWhiteUpdate.ico" : L"\\svgs\\PowerToysWhite.ico";
+    }
+    else
+    {
+        icon_path += update_available ? L"\\svgs\\PowerToysDarkUpdate.ico" : L"\\svgs\\PowerToysDark.ico";
+    }
+    Logger::trace(L"get_icon: Loading icon from path: {}", icon_path);
+
+    HICON icon = static_cast<HICON>(LoadImage(NULL,
+                                        icon_path.c_str(),
+                                        IMAGE_ICON,
+                                        0,
+                                        0,
+                                        LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED));
+    if (!icon)
+    {
+        Logger::warn(L"get_icon: Failed to load icon from {}, error: {}", icon_path, GetLastError());
+    }
+    return icon;
+}
+
+
+static void handle_theme_change()
+{
+    if (theme_adaptive_enabled)
+    {
+        tray_icon_data.hIcon = get_icon(ThemeHelpers::GetSystemTheme());
+        Shell_NotifyIcon(NIM_MODIFY, &tray_icon_data);
+    }
+}
+
+void update_bug_report_menu_status(bool isRunning)
+{
+    if (h_sub_menu != nullptr)
+    {
+        EnableMenuItem(h_sub_menu, ID_REPORT_BUG_COMMAND, MF_BYCOMMAND | (isRunning ? MF_GRAYED : MF_ENABLED));
+    }
+}
+
+void start_tray_icon(bool isProcessElevated, bool theme_adaptive)
+{
+    theme_adaptive_enabled = theme_adaptive;
     auto h_instance = reinterpret_cast<HINSTANCE>(&__ImageBase);
-    auto icon = LoadIcon(h_instance, MAKEINTRESOURCE(APPICON));
+
+    // Check if an update is available at startup
+    auto state = UpdateState::read();
+    update_available = (state.state == UpdateState::readyToDownload || state.state == UpdateState::readyToInstall);
+
+    HICON const icon = theme_adaptive
+                           ? get_icon(ThemeHelpers::GetSystemTheme())
+                           : LoadIcon(h_instance, MAKEINTRESOURCE(update_available ? APPICON_UPDATE : APPICON));
     if (icon)
     {
         UINT id_tray_icon = 1;
@@ -309,6 +464,92 @@ void start_tray_icon(bool isProcessElevated)
         ChangeWindowMessageFilterEx(hwnd, WM_COMMAND, MSGFLT_ALLOW, nullptr);
 
         tray_icon_created = Shell_NotifyIcon(NIM_ADD, &tray_icon_data) == TRUE;
+        theme_listener.AddSystemThemeChangedHandler(&handle_theme_change);
+
+        // Register callback to update bug report menu item status
+        BugReportManager::instance().register_callback([](bool isRunning) {
+            dispatch_run_on_main_ui_thread([](PVOID data) {
+                bool* running = static_cast<bool*>(data);
+                update_bug_report_menu_status(*running);
+                delete running;
+            },
+                                           new bool(isRunning));
+        });
+    }
+}
+
+void set_tray_icon_visible(bool shouldIconBeVisible)
+{
+    tray_icon_data.uFlags |= NIF_STATE;
+    tray_icon_data.dwStateMask = NIS_HIDDEN;
+    tray_icon_data.dwState = shouldIconBeVisible ? 0 : NIS_HIDDEN;
+    Shell_NotifyIcon(NIM_MODIFY, &tray_icon_data);
+}
+
+void set_tray_icon_update_available(bool available)
+{
+    if (update_available == available)
+    {
+        return;
+    }
+
+    update_available = available;
+    Logger::info(L"set_tray_icon_update_available: update_available={}", update_available);
+
+    if (theme_adaptive_enabled)
+    {
+        tray_icon_data.hIcon = get_icon(ThemeHelpers::GetSystemTheme());
+    }
+    else
+    {
+        auto h_instance = reinterpret_cast<HINSTANCE>(&__ImageBase);
+        tray_icon_data.hIcon = LoadIcon(h_instance, MAKEINTRESOURCE(available ? APPICON_UPDATE : APPICON));
+    }
+
+    Shell_NotifyIcon(NIM_MODIFY, &tray_icon_data);
+}
+
+void set_tray_icon_theme_adaptive(bool theme_adaptive)
+{
+    Logger::info(L"set_tray_icon_theme_adaptive: Called with theme_adaptive={}, current theme_adaptive_enabled={}",
+                 theme_adaptive, theme_adaptive_enabled);
+
+    auto h_instance = reinterpret_cast<HINSTANCE>(&__ImageBase);
+    HICON icon = nullptr;
+
+    if (theme_adaptive)
+    {
+        icon = get_icon(ThemeHelpers::GetSystemTheme());
+        if (!icon)
+        {
+            Logger::warn(L"set_tray_icon_theme_adaptive: Failed to load theme adaptive icon, falling back to default");
+        }
+    }
+
+    // If not requesting adaptive icon, or if adaptive icon failed to load, use default icon
+    if (!icon)
+    {
+        icon = LoadIcon(h_instance, MAKEINTRESOURCE(update_available ? APPICON_UPDATE : APPICON));
+        if (theme_adaptive && icon)
+        {
+            // We requested adaptive but had to fall back, so update the flag
+            theme_adaptive = false;
+            Logger::info(L"set_tray_icon_theme_adaptive: Using default icon as fallback");
+        }
+    }
+
+    theme_adaptive_enabled = theme_adaptive;
+
+    if (icon)
+    {
+        tray_icon_data.hIcon = icon;
+        BOOL result = Shell_NotifyIcon(NIM_MODIFY, &tray_icon_data);
+        Logger::info(L"set_tray_icon_theme_adaptive: Icon updated, theme_adaptive_enabled={}, Shell_NotifyIcon result={}",
+                     theme_adaptive_enabled, result);
+    }
+    else
+    {
+        Logger::error(L"set_tray_icon_theme_adaptive: Failed to load any icon");
     }
 }
 
@@ -316,6 +557,46 @@ void stop_tray_icon()
 {
     if (tray_icon_created)
     {
+        // Clear bug report callbacks
+        BugReportManager::instance().clear_callbacks();
         SendMessage(tray_icon_hwnd, WM_CLOSE, 0, 0);
+    }
+}
+
+bool is_system_session_ending()
+{
+    return g_system_session_ending;
+}
+void update_quick_access_hotkey(bool enabled, PowerToysSettings::HotkeyObject hotkey)
+{
+    static PowerToysSettings::HotkeyObject current_hotkey;
+    static bool is_registered = false;
+    auto& hkmng = HotkeyConflictDetector::HotkeyConflictManager::GetInstance();
+
+    if (is_registered)
+    {
+        CentralizedKeyboardHook::ClearModuleHotkeys(L"QuickAccess");
+        hkmng.RemoveHotkeyByModule(L"GeneralSettings");
+        is_registered = false;
+    }
+
+    if (enabled && hotkey.get_code() != 0)
+    {
+        HotkeyConflictDetector::Hotkey hk = {
+            hotkey.win_pressed(),
+            hotkey.ctrl_pressed(),
+            hotkey.shift_pressed(),
+            hotkey.alt_pressed(),
+            static_cast<unsigned char>(hotkey.get_code())
+        };
+
+        hkmng.AddHotkey(hk, L"GeneralSettings", 0, true);
+        CentralizedKeyboardHook::SetHotkeyAction(L"QuickAccess", hk, []() {
+            open_quick_access_flyout_window();
+            return true;
+        });
+
+        current_hotkey = hotkey;
+        is_registered = true;
     }
 }

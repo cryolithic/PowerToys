@@ -15,11 +15,14 @@ Param(
 $referencedFileVersionsPerDll = @{}
 $totalFailures = 0
 
-Get-ChildItem $targetDir -Recurse -Filter *.deps.json -Exclude *UITest*,MouseJump.Common.UnitTests*,*.FuzzTests* | ForEach-Object {
-    # Temporarily exclude All UI-Test, Fuzzer-Test projects because of Appium.WebDriver dependencies
+Get-ChildItem $targetDir -Recurse -Filter *.deps.json -Exclude *UITest*,MouseJump.Common.UnitTests*,EnvironmentVariablesUILib.UnitTests*,*.FuzzTests* | ForEach-Object {
+    # Temporarily exclude All UI-Test, Fuzzer-Test projects because of Appium.WebDriver dependencies.
+    # MouseJump.Common.UnitTests and EnvironmentVariablesUILib.UnitTests are self-contained WinUI (CsWinRT) unit tests:
+    # each bundles its full runtime closure into an isolated tests\<name> output folder, so its private dll copies
+    # cannot collide with product binaries at runtime and are safe to skip in this cross-dependency version check.
     $depsJsonFullFileName = $_.FullName
 
-    if ($depsJsonFullFileName -like "*CmdPal*") {
+    if ($depsJsonFullFileName -like "*CmdPal*" -or $depsJsonFullFileName -like "*CommandPalette*") {
         return
     }
 
@@ -92,4 +95,3 @@ if ($totalFailures -gt 0) {
 
 Write-Host -ForegroundColor Green "All " $referencedFileVersionsPerDll.keys.Count " libraries are mentioned with the same version across the dependencies.`r`n"
 exit 0
-

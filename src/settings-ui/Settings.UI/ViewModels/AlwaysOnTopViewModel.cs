@@ -3,11 +3,13 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using global::PowerToys.GPOWrapper;
 using ManagedCommon;
+using Microsoft.PowerToys.Settings.UI.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Settings.UI.Library.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library.Interfaces;
@@ -16,9 +18,11 @@ using Microsoft.PowerToys.Settings.UI.SerializationContext;
 
 namespace Microsoft.PowerToys.Settings.UI.ViewModels
 {
-    public partial class AlwaysOnTopViewModel : Observable
+    public partial class AlwaysOnTopViewModel : PageViewModelBase
     {
-        private ISettingsUtils SettingsUtils { get; set; }
+        protected override string ModuleName => AlwaysOnTopSettings.ModuleName;
+
+        private SettingsUtils SettingsUtils { get; set; }
 
         private GeneralSettings GeneralSettingsConfig { get; set; }
 
@@ -26,7 +30,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
         private Func<string, int> SendConfigMSG { get; }
 
-        public AlwaysOnTopViewModel(ISettingsUtils settingsUtils, ISettingsRepository<GeneralSettings> settingsRepository, ISettingsRepository<AlwaysOnTopSettings> moduleSettingsRepository, Func<string, int> ipcMSGCallBackFunc)
+        public AlwaysOnTopViewModel(SettingsUtils settingsUtils, ISettingsRepository<GeneralSettings> settingsRepository, ISettingsRepository<AlwaysOnTopSettings> moduleSettingsRepository, Func<string, int> ipcMSGCallBackFunc)
         {
             ArgumentNullException.ThrowIfNull(settingsUtils);
 
@@ -45,6 +49,9 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             Settings = moduleSettingsRepository.SettingsConfig;
 
             _hotkey = Settings.Properties.Hotkey.Value;
+            _increaseOpacityHotkey = Settings.Properties.IncreaseOpacityHotkey.Value;
+            _decreaseOpacityHotkey = Settings.Properties.DecreaseOpacityHotkey.Value;
+            _showInSystemMenu = Settings.Properties.ShowInSystemMenu.Value;
             _frameEnabled = Settings.Properties.FrameEnabled.Value;
             _frameThickness = Settings.Properties.FrameThickness.Value;
             _frameColor = Settings.Properties.FrameColor.Value;
@@ -73,6 +80,16 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             {
                 _isEnabled = GeneralSettingsConfig.Enabled.AlwaysOnTop;
             }
+        }
+
+        public override Dictionary<string, HotkeySettings[]> GetAllHotkeySettings()
+        {
+            var hotkeysDict = new Dictionary<string, HotkeySettings[]>
+            {
+                [ModuleName] = [Hotkey, IncreaseOpacityHotkey, DecreaseOpacityHotkey],
+            };
+
+            return hotkeysDict;
         }
 
         public bool IsEnabled
@@ -114,19 +131,58 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             {
                 if (value != _hotkey)
                 {
-                    if (value == null || value.IsEmpty())
-                    {
-                        _hotkey = AlwaysOnTopProperties.DefaultHotkeyValue;
-                    }
-                    else
-                    {
-                        _hotkey = value;
-                    }
+                    _hotkey = value ?? AlwaysOnTopProperties.DefaultHotkeyValue;
 
                     Settings.Properties.Hotkey.Value = _hotkey;
                     NotifyPropertyChanged();
 
                     // Using InvariantCulture as this is an IPC message
+                    SendConfigMSG(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{{ \"powertoys\": {{ \"{0}\": {1} }} }}",
+                            AlwaysOnTopSettings.ModuleName,
+                            JsonSerializer.Serialize(Settings, SourceGenerationContextContext.Default.AlwaysOnTopSettings)));
+                }
+            }
+        }
+
+        public HotkeySettings IncreaseOpacityHotkey
+        {
+            get => _increaseOpacityHotkey;
+
+            set
+            {
+                if (value != _increaseOpacityHotkey)
+                {
+                    _increaseOpacityHotkey = value ?? AlwaysOnTopProperties.DefaultIncreaseOpacityHotkeyValue;
+
+                    Settings.Properties.IncreaseOpacityHotkey.Value = _increaseOpacityHotkey;
+                    NotifyPropertyChanged();
+
+                    SendConfigMSG(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{{ \"powertoys\": {{ \"{0}\": {1} }} }}",
+                            AlwaysOnTopSettings.ModuleName,
+                            JsonSerializer.Serialize(Settings, SourceGenerationContextContext.Default.AlwaysOnTopSettings)));
+                }
+            }
+        }
+
+        public HotkeySettings DecreaseOpacityHotkey
+        {
+            get => _decreaseOpacityHotkey;
+
+            set
+            {
+                if (value != _decreaseOpacityHotkey)
+                {
+                    _decreaseOpacityHotkey = value ?? AlwaysOnTopProperties.DefaultDecreaseOpacityHotkeyValue;
+
+                    Settings.Properties.DecreaseOpacityHotkey.Value = _decreaseOpacityHotkey;
+                    NotifyPropertyChanged();
+
                     SendConfigMSG(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -147,6 +203,21 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
                 {
                     _frameEnabled = value;
                     Settings.Properties.FrameEnabled.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool ShowInSystemMenu
+        {
+            get => _showInSystemMenu;
+
+            set
+            {
+                if (value != _showInSystemMenu)
+                {
+                    _showInSystemMenu = value;
+                    Settings.Properties.ShowInSystemMenu.Value = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -298,6 +369,9 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private bool _enabledStateIsGPOConfigured;
         private bool _isEnabled;
         private HotkeySettings _hotkey;
+        private HotkeySettings _increaseOpacityHotkey;
+        private HotkeySettings _decreaseOpacityHotkey;
+        private bool _showInSystemMenu;
         private bool _frameEnabled;
         private int _frameThickness;
         private string _frameColor;

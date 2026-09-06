@@ -19,12 +19,18 @@ public partial class SettingsForm : FormContent
     public override ICommandResult SubmitForm(string inputs, string data)
     {
         var formInput = JsonNode.Parse(inputs)?.AsObject();
-        if (formInput == null)
+        if (formInput is null)
         {
             return CommandResult.KeepOpen();
         }
 
-        _settings.Update(inputs);
+        // Re-render the current value of the settings to a card. The
+        // SettingsContentPage will raise an ItemsChanged in its own
+        // SettingsChange handler, so we need to be prepared to return the
+        // current settings value.
+        TemplateJson = _settings.ToFormJson();
+
+        _settings.UpdateFromForm(inputs);
         _settings.RaiseSettingsChanged();
 
         return CommandResult.GoHome();

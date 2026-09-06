@@ -15,8 +15,12 @@
 #include <common/utils/logger_helper.h>
 #include <common/utils/winapi_error.h>
 #include <common/utils/gpo.h>
+#include <common/utils/EventWaiter.h>
 
-#include <winrt/Windows.Security.Credentials.h>
+#include <algorithm>
+#include <cwctype>
+#include <chrono>
+#include <thread>
 #include <vector>
 
 BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
@@ -54,12 +58,17 @@ namespace
     const wchar_t JSON_KEY_ADVANCED_PASTE_UI_HOTKEY[] = L"advanced-paste-ui-hotkey";
     const wchar_t JSON_KEY_PASTE_AS_MARKDOWN_HOTKEY[] = L"paste-as-markdown-hotkey";
     const wchar_t JSON_KEY_PASTE_AS_JSON_HOTKEY[] = L"paste-as-json-hotkey";
-    const wchar_t JSON_KEY_IS_ADVANCED_AI_ENABLED[] = L"IsAdvancedAIEnabled";
+    const wchar_t JSON_KEY_IS_AI_ENABLED[] = L"IsAIEnabled";
+    const wchar_t JSON_KEY_IS_OPEN_AI_ENABLED[] = L"IsOpenAIEnabled";
     const wchar_t JSON_KEY_SHOW_CUSTOM_PREVIEW[] = L"ShowCustomPreview";
+    const wchar_t JSON_KEY_AUTO_COPY_SELECTION_CUSTOM_ACTION[] = L"AutoCopySelectionForCustomActionHotkey";
+    const wchar_t JSON_KEY_PASTE_AI_CONFIGURATION[] = L"paste-ai-configuration";
+    const wchar_t JSON_KEY_PROVIDERS[] = L"providers";
+    const wchar_t JSON_KEY_SERVICE_TYPE[] = L"service-type";
+    const wchar_t JSON_KEY_ENABLE_ADVANCED_AI[] = L"enable-advanced-ai";
+    const wchar_t JSON_KEY_COACHING_SHORTCUT[] = L"coaching-shortcut";
+    const wchar_t JSON_KEY_COACHING_ENABLED[] = L"coaching-enabled";
     const wchar_t JSON_KEY_VALUE[] = L"value";
-
-    const wchar_t OPENAI_VAULT_RESOURCE[] = L"https://platform.openai.com/api-keys";
-    const wchar_t OPENAI_VAULT_USERNAME[] = L"PowerToys_AdvancedPaste_OpenAIKey";
 }
 
 class AdvancedPaste : public PowertoyModuleIface
@@ -94,8 +103,13 @@ private:
     using CustomAction = ActionData<int>;
     std::vector<CustomAction> m_custom_actions;
 
+    bool m_is_ai_enabled = false;
     bool m_is_advanced_ai_enabled = false;
     bool m_preview_custom_format_output = true;
+    bool m_auto_copy_selection_custom_action = false;
+
+    // Event listening for external triggers (e.g., from CmdPal extension)
+    EventWaiter m_triggerEventWaiter;
 
     Hotkey parse_single_hotkey(const wchar_t* keyName, const winrt::Windows::Data::Json::JsonObject& settingsObject)
     {
@@ -112,7 +126,7 @@ private:
         return {};
     }
 
-    static Hotkey parse_single_hotkey(const winrt::Windows::Data::Json::JsonObject& jsonHotkeyObject)
+    static Hotkey parse_single_hotkey(const winrt::Windows::Data::Json::JsonObject& jsonHotkeyObject, bool isShown = true)
     {
         try
         {
@@ -122,6 +136,7 @@ private:
             hotkey.shift = jsonHotkeyObject.GetNamedBoolean(JSON_KEY_SHIFT);
             hotkey.ctrl = jsonHotkeyObject.GetNamedBoolean(JSON_KEY_CTRL);
             hotkey.key = static_cast<unsigned char>(jsonHotkeyObject.GetNamedNumber(JSON_KEY_CODE));
+            hotkey.isShown = isShown;
             return hotkey;
         }
         catch (...)
@@ -144,32 +159,11 @@ private:
         return jsonObject;
     }
 
-    static bool open_ai_key_exists()
-    {
-        try
-        {
-            winrt::Windows::Security::Credentials::PasswordVault().Retrieve(OPENAI_VAULT_RESOURCE, OPENAI_VAULT_USERNAME);
-            return true;
-        }
-        catch (const winrt::hresult_error& ex)
-        {
-            // Looks like the only way to access the PasswordVault is through an API that throws an exception in case the resource doesn't exist.
-            // If the debugger breaks here, just continue.
-            // If you want to disable breaking here in a more permanent way, just add a condition in Visual Studio's Exception Settings to not break on win::hresult_error, but that might make you not hit other exceptions you might want to catch.
-            if (ex.code() == HRESULT_FROM_WIN32(ERROR_NOT_FOUND))
-            {
-                return false; // Credential doesn't exist.
-            }
-            Logger::error("Unexpected error while retrieving OpenAI key from vault: {}", winrt::to_string(ex.message()));
-            return false;
-        }
-    }
-
-    bool is_open_ai_enabled()
+    bool is_ai_enabled()
     {
         return gpo_policy_enabled_configuration() != powertoys_gpo::gpo_rule_configured_disabled &&
                powertoys_gpo::getAllowedAdvancedPasteOnlineAIModelsValue() != powertoys_gpo::gpo_rule_configured_disabled &&
-               open_ai_key_exists();
+               m_is_ai_enabled;
     }
 
     static std::wstring kebab_to_pascal_case(const std::wstring& kebab_str)
@@ -197,6 +191,13 @@ private:
             }
         }
 
+        return result;
+    }
+
+    static std::wstring to_lower_case(const std::wstring& value)
+    {
+        std::wstring result = value;
+        std::transform(result.begin(), result.end(), result.begin(), [](wchar_t ch) { return std::towlower(ch); });
         return result;
     }
 
@@ -231,8 +232,10 @@ private:
         return false;
     }
 
-    void process_additional_action(const winrt::hstring& actionName, const winrt::Windows::Data::Json::IJsonValue& actionValue)
+    void process_additional_action(const winrt::hstring& actionName, const winrt::Windows::Data::Json::IJsonValue& actionValue, bool actionsGroupIsShown = true)
     {
+        bool actionIsShown = true;
+
         if (actionValue.ValueType() != winrt::Windows::Data::Json::JsonValueType::Object)
         {
             return;
@@ -240,9 +243,9 @@ private:
 
         const auto action = actionValue.GetObjectW();
 
-        if (!action.GetNamedBoolean(JSON_KEY_IS_SHOWN, false))
+        if (!action.GetNamedBoolean(JSON_KEY_IS_SHOWN, false) || !actionsGroupIsShown)
         {
-            return;
+            actionIsShown = false;
         }
 
         if (action.HasKey(JSON_KEY_SHORTCUT))
@@ -250,18 +253,88 @@ private:
             const AdditionalAction additionalAction
             {
                 actionName.c_str(),
-                parse_single_hotkey(action.GetNamedObject(JSON_KEY_SHORTCUT))
+                parse_single_hotkey(action.GetNamedObject(JSON_KEY_SHORTCUT), actionIsShown)
             };
 
             m_additional_actions.push_back(additionalAction);
+
+            // Register coaching shortcut as a separate hotkey with a "-coaching" suffix ID
+            if (action.HasKey(JSON_KEY_COACHING_SHORTCUT) && action.GetNamedBoolean(JSON_KEY_COACHING_ENABLED, false))
+            {
+                auto coachingHotkey = parse_single_hotkey(action.GetNamedObject(JSON_KEY_COACHING_SHORTCUT), actionIsShown);
+                if (coachingHotkey.key != 0)
+                {
+                    const AdditionalAction coachingAction
+                    {
+                        std::wstring(actionName.c_str()) + L"-coaching",
+                        coachingHotkey
+                    };
+                    m_additional_actions.push_back(coachingAction);
+                }
+            }
         }
         else
         {
             for (const auto& [subActionName, subAction] : action)
             {
-                process_additional_action(subActionName, subAction);
+                process_additional_action(subActionName, subAction, actionIsShown);
             }
         }
+    }
+
+    bool has_advanced_ai_provider(const winrt::Windows::Data::Json::JsonObject& propertiesObject)
+    {
+        if (!propertiesObject.HasKey(JSON_KEY_PASTE_AI_CONFIGURATION))
+        {
+            return false;
+        }
+
+        const auto configValue = propertiesObject.GetNamedValue(JSON_KEY_PASTE_AI_CONFIGURATION);
+        if (configValue.ValueType() != winrt::Windows::Data::Json::JsonValueType::Object)
+        {
+            return false;
+        }
+
+        const auto configObject = configValue.GetObjectW();
+        if (!configObject.HasKey(JSON_KEY_PROVIDERS))
+        {
+            return false;
+        }
+
+        const auto providersValue = configObject.GetNamedValue(JSON_KEY_PROVIDERS);
+        if (providersValue.ValueType() != winrt::Windows::Data::Json::JsonValueType::Array)
+        {
+            return false;
+        }
+
+        const auto providers = providersValue.GetArray();
+        for (const auto providerValue : providers)
+        {
+            if (providerValue.ValueType() != winrt::Windows::Data::Json::JsonValueType::Object)
+            {
+                continue;
+            }
+
+            const auto providerObject = providerValue.GetObjectW();
+            if (!providerObject.GetNamedBoolean(JSON_KEY_ENABLE_ADVANCED_AI, false))
+            {
+                continue;
+            }
+
+            if (!providerObject.HasKey(JSON_KEY_SERVICE_TYPE))
+            {
+                continue;
+            }
+
+            const std::wstring serviceType = providerObject.GetNamedString(JSON_KEY_SERVICE_TYPE, L"").c_str();
+            const auto normalizedServiceType = to_lower_case(serviceType);
+            if (normalizedServiceType == L"openai" || normalizedServiceType == L"azureopenai")
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void read_settings(PowerToysSettings::PowerToyValues& settings)
@@ -271,6 +344,37 @@ private:
         // Migrate Paste As Plain text shortcut
         Hotkey old_paste_as_plain_hotkey;
         bool old_data_migrated = migrate_data_and_remove_data_file(old_paste_as_plain_hotkey);
+
+        if (settingsObject.GetView().Size())
+        {
+            const auto propertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES);
+
+            m_is_advanced_ai_enabled = has_advanced_ai_provider(propertiesObject);
+
+            if (propertiesObject.HasKey(JSON_KEY_IS_AI_ENABLED))
+            {
+                m_is_ai_enabled = propertiesObject.GetNamedObject(JSON_KEY_IS_AI_ENABLED).GetNamedBoolean(JSON_KEY_VALUE, false);
+            }
+            else if (propertiesObject.HasKey(JSON_KEY_IS_OPEN_AI_ENABLED))
+            {
+                m_is_ai_enabled = propertiesObject.GetNamedObject(JSON_KEY_IS_OPEN_AI_ENABLED).GetNamedBoolean(JSON_KEY_VALUE, false);
+            }
+            else
+            {
+                m_is_ai_enabled = false;
+            }
+
+            if (propertiesObject.HasKey(JSON_KEY_SHOW_CUSTOM_PREVIEW))
+            {
+                m_preview_custom_format_output = propertiesObject.GetNamedObject(JSON_KEY_SHOW_CUSTOM_PREVIEW).GetNamedBoolean(JSON_KEY_VALUE);
+            }
+
+            if (propertiesObject.HasKey(JSON_KEY_AUTO_COPY_SELECTION_CUSTOM_ACTION))
+            {
+                m_auto_copy_selection_custom_action = propertiesObject.GetNamedObject(JSON_KEY_AUTO_COPY_SELECTION_CUSTOM_ACTION).GetNamedBoolean(JSON_KEY_VALUE, false);
+            }
+        }
+
         if (old_data_migrated)
         {
             m_paste_as_plain_hotkey = old_paste_as_plain_hotkey;
@@ -317,50 +421,45 @@ private:
                     {
                         const auto additionalActions = propertiesObject.GetNamedObject(JSON_KEY_ADDITIONAL_ACTIONS);
 
-                        for (const auto& [actionName, additionalAction] : additionalActions)
+                        // Define the expected order to ensure consistent hotkey ID assignment
+                        const std::vector<winrt::hstring> expectedOrder = {
+                            L"image-to-text",
+                            L"fix-spelling-and-grammar",
+                            L"paste-as-file",
+                            L"transcode"
+                        };
+
+                        // Process actions in the predefined order
+                        for (auto& actionKey : expectedOrder)
                         {
-                            process_additional_action(actionName, additionalAction);
+                            if (additionalActions.HasKey(actionKey))
+                            {
+                                const auto actionValue = additionalActions.GetNamedValue(actionKey);
+                                process_additional_action(actionKey, actionValue);
+                            }
                         }
                     }
 
                     if (propertiesObject.HasKey(JSON_KEY_CUSTOM_ACTIONS))
                     {
                         const auto customActions = propertiesObject.GetNamedObject(JSON_KEY_CUSTOM_ACTIONS).GetNamedArray(JSON_KEY_VALUE);
-                        if (customActions.Size() > 0 && is_open_ai_enabled())
+                        if (customActions.Size() > 0 && is_ai_enabled())
                         {
                             for (const auto& customAction : customActions)
                             {
                                 const auto object = customAction.GetObjectW();
+                                bool actionIsShown = object.GetNamedBoolean(JSON_KEY_IS_SHOWN, false);
 
-                                if (object.GetNamedBoolean(JSON_KEY_IS_SHOWN, false))
-                                {
-                                    const CustomAction customActionData
-                                    {
-                                        static_cast<int>(object.GetNamedNumber(JSON_KEY_ID)),
-                                        parse_single_hotkey(object.GetNamedObject(JSON_KEY_SHORTCUT))
-                                    };
+                                const CustomAction customActionData{
+                                    static_cast<int>(object.GetNamedNumber(JSON_KEY_ID)),
+                                    parse_single_hotkey(object.GetNamedObject(JSON_KEY_SHORTCUT), actionIsShown)
+                                };
 
-                                    m_custom_actions.push_back(customActionData);
-                                }
+                                m_custom_actions.push_back(customActionData);
                             }
                         }
                     }
                 }
-            }
-        }
-
-        if (settingsObject.GetView().Size())
-        {
-            const auto propertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES);
-
-            if (propertiesObject.HasKey(JSON_KEY_IS_ADVANCED_AI_ENABLED))
-            {
-                m_is_advanced_ai_enabled = propertiesObject.GetNamedObject(JSON_KEY_IS_ADVANCED_AI_ENABLED).GetNamedBoolean(JSON_KEY_VALUE);
-            }
-
-            if (propertiesObject.HasKey(JSON_KEY_SHOW_CUSTOM_PREVIEW))
-            {
-                m_preview_custom_format_output = propertiesObject.GetNamedObject(JSON_KEY_SHOW_CUSTOM_PREVIEW).GetNamedBoolean(JSON_KEY_VALUE);
             }
         }
     }
@@ -406,6 +505,184 @@ private:
             input_event.ki.wVk = modifier;
             inputs.push_back(input_event);
         }
+    }
+
+    bool try_send_copy_message()
+    {
+        GUITHREADINFO gui_info = {};
+        gui_info.cbSize = sizeof(GUITHREADINFO);
+
+        if (!GetGUIThreadInfo(0, &gui_info))
+        {
+            Logger::warn(L"Auto-copy: GetGUIThreadInfo failed (error={})", GetLastError());
+            return false;
+        }
+
+        HWND target = gui_info.hwndFocus ? gui_info.hwndFocus : gui_info.hwndActive;
+        if (!target)
+        {
+            Logger::warn(L"Auto-copy: no focused or active window found");
+            return false;
+        }
+
+        DWORD_PTR result = 0;
+        auto sendResult = SendMessageTimeout(target, WM_COPY, 0, 0, SMTO_ABORTIFHUNG | SMTO_BLOCK, 50, &result);
+        return sendResult != 0;
+    }
+
+    // Helper: poll clipboard sequence number for a change from initial_sequence.
+    // Returns true if the sequence number changed within the given number of polls.
+    bool poll_clipboard_sequence(DWORD initial_sequence, int poll_attempts, std::chrono::milliseconds poll_delay)
+    {
+        for (int poll = 0; poll < poll_attempts; ++poll)
+        {
+            if (GetClipboardSequenceNumber() != initial_sequence)
+            {
+                return true;
+            }
+            std::this_thread::sleep_for(poll_delay);
+        }
+        return false;
+    }
+
+    // Helper: send Ctrl+C via SendInput, releasing any held modifier keys first
+    // (the hotkey combination may still have modifiers physically pressed).
+    bool send_ctrl_c_input()
+    {
+        std::vector<INPUT> inputs;
+
+        // Release all modifier keys that are currently held down from the hotkey.
+        // Without this, the target app sees e.g. Win+Shift+Ctrl+C instead of just Ctrl+C.
+        try_inject_modifier_key_up(inputs, VK_LCONTROL);
+        try_inject_modifier_key_up(inputs, VK_RCONTROL);
+        try_inject_modifier_key_up(inputs, VK_LWIN);
+        try_inject_modifier_key_up(inputs, VK_RWIN);
+        try_inject_modifier_key_up(inputs, VK_LSHIFT);
+        try_inject_modifier_key_up(inputs, VK_RSHIFT);
+        try_inject_modifier_key_up(inputs, VK_LMENU);
+        try_inject_modifier_key_up(inputs, VK_RMENU);
+
+        // Ctrl down
+        {
+            INPUT input_event = {};
+            input_event.type = INPUT_KEYBOARD;
+            input_event.ki.wVk = VK_CONTROL;
+            input_event.ki.dwExtraInfo = CENTRALIZED_KEYBOARD_HOOK_DONT_TRIGGER_FLAG;
+            inputs.push_back(input_event);
+        }
+
+        // C down
+        {
+            INPUT input_event = {};
+            input_event.type = INPUT_KEYBOARD;
+            input_event.ki.wVk = 0x43; // C
+            input_event.ki.dwExtraInfo = CENTRALIZED_KEYBOARD_HOOK_DONT_TRIGGER_FLAG;
+            inputs.push_back(input_event);
+        }
+
+        // C up
+        {
+            INPUT input_event = {};
+            input_event.type = INPUT_KEYBOARD;
+            input_event.ki.wVk = 0x43; // C
+            input_event.ki.dwFlags = KEYEVENTF_KEYUP;
+            input_event.ki.dwExtraInfo = CENTRALIZED_KEYBOARD_HOOK_DONT_TRIGGER_FLAG;
+            inputs.push_back(input_event);
+        }
+
+        // Ctrl up
+        {
+            INPUT input_event = {};
+            input_event.type = INPUT_KEYBOARD;
+            input_event.ki.wVk = VK_CONTROL;
+            input_event.ki.dwFlags = KEYEVENTF_KEYUP;
+            input_event.ki.dwExtraInfo = CENTRALIZED_KEYBOARD_HOOK_DONT_TRIGGER_FLAG;
+            inputs.push_back(input_event);
+        }
+
+        // Restore modifiers that were held down
+        try_inject_modifier_key_restore(inputs, VK_LCONTROL);
+        try_inject_modifier_key_restore(inputs, VK_RCONTROL);
+        try_inject_modifier_key_restore(inputs, VK_LWIN);
+        try_inject_modifier_key_restore(inputs, VK_RWIN);
+        try_inject_modifier_key_restore(inputs, VK_LSHIFT);
+        try_inject_modifier_key_restore(inputs, VK_RSHIFT);
+        try_inject_modifier_key_restore(inputs, VK_LMENU);
+        try_inject_modifier_key_restore(inputs, VK_RMENU);
+
+        // Prevent Start Menu from activating after Win key release/restore
+        INPUT dummyEvent = {};
+        dummyEvent.type = INPUT_KEYBOARD;
+        dummyEvent.ki.wVk = 0xFF;
+        dummyEvent.ki.dwFlags = KEYEVENTF_KEYUP;
+        inputs.push_back(dummyEvent);
+
+        auto uSent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+        if (uSent != inputs.size())
+        {
+            DWORD errorCode = GetLastError();
+            auto errorMessage = get_last_error_message(errorCode);
+            Logger::error(L"SendInput failed for Ctrl+C. Expected to send {} inputs and sent only {}. {}", inputs.size(), uSent, errorMessage.has_value() ? errorMessage.value() : L"");
+            Trace::AdvancedPaste_Error(errorCode, errorMessage.has_value() ? errorMessage.value() : L"", L"input.SendInput");
+            return false;
+        }
+        return true;
+    }
+
+    bool send_copy_selection()
+    {
+        constexpr int copy_attempts = 2;
+        constexpr auto copy_retry_delay = std::chrono::milliseconds(100);
+        constexpr int clipboard_poll_attempts = 5;
+        constexpr auto clipboard_poll_delay = std::chrono::milliseconds(30);
+
+        bool copy_succeeded = false;
+        for (int attempt = 0; attempt < copy_attempts; ++attempt)
+        {
+            const auto initial_sequence = GetClipboardSequenceNumber();
+
+            // Strategy 1: Try WM_COPY message (works for standard Win32 controls)
+            bool wm_copy_sent = try_send_copy_message();
+
+            if (wm_copy_sent)
+            {
+                if (poll_clipboard_sequence(initial_sequence, clipboard_poll_attempts, clipboard_poll_delay))
+                {
+                    copy_succeeded = true;
+                }
+            }
+
+            // Strategy 2: If WM_COPY didn't work, try SendInput Ctrl+C (works for Electron, browsers, etc.)
+            if (!copy_succeeded)
+            {
+                const auto sequence_before_ctrl_c = GetClipboardSequenceNumber();
+
+                if (send_ctrl_c_input())
+                {
+                    if (poll_clipboard_sequence(sequence_before_ctrl_c, clipboard_poll_attempts, clipboard_poll_delay))
+                    {
+                        copy_succeeded = true;
+                    }
+                }
+            }
+
+            if (copy_succeeded)
+            {
+                break;
+            }
+
+            if (attempt + 1 < copy_attempts)
+            {
+                std::this_thread::sleep_for(copy_retry_delay);
+            }
+        }
+
+        if (!copy_succeeded)
+        {
+            Logger::warn(L"Auto-copy: all {} copy attempts failed — the target application did not update the clipboard after WM_COPY and Ctrl+C", copy_attempts);
+        }
+
+        return copy_succeeded;
     }
 
     void try_to_paste_as_plain_text()
@@ -651,6 +928,12 @@ public:
         return powertoys_gpo::getConfiguredAdvancedPasteEnabledValue();
     }
 
+    // Returns whether the PowerToys should be enabled by default
+    virtual bool is_enabled_by_default() const override
+    {
+        return false;
+    }
+
     virtual bool get_config(wchar_t* buffer, int* buffer_size) override
     {
         HINSTANCE hinstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
@@ -711,6 +994,23 @@ public:
         Trace::AdvancedPaste_Enable(true);
         m_enabled = true;
         m_process_manager.start();
+
+        // Start listening for external trigger event so we can invoke the same logic as the hotkey.
+        // Note: Use start() directly instead of constructor + move assignment to avoid dangling this pointer in the thread.
+        m_triggerEventWaiter.start(CommonSharedConstants::ADVANCED_PASTE_SHOW_UI_EVENT, [this](DWORD) {
+            // Same logic as hotkeyId == 1 (m_advanced_paste_ui_hotkey)
+            Logger::trace(L"AdvancedPaste ShowUI event triggered");
+
+            if (m_auto_copy_selection_custom_action)
+            {
+                send_copy_selection(); // best-effort; ignore failure
+            }
+
+            m_process_manager.start();
+            m_process_manager.bring_to_front();
+            m_process_manager.send_message(CommonSharedConstants::ADVANCED_PASTE_SHOW_UI_MESSAGE);
+            Trace::AdvancedPaste_Invoked(L"AdvancedPasteUIEvent");
+        });
     };
 
     void Disable(bool traceEvent)
@@ -718,6 +1018,9 @@ public:
         if (m_enabled)
         {
             m_process_manager.stop();
+
+            // Stop event listening
+            m_triggerEventWaiter.stop();
 
             if (traceEvent)
             {
@@ -739,6 +1042,27 @@ public:
         Logger::trace(L"AdvancedPaste hotkey pressed");
         if (m_enabled)
         {
+            size_t additional_action_index = 0;
+            size_t custom_action_index = 0;
+            bool is_custom_action_hotkey = false;
+
+            if (hotkeyId >= NUM_DEFAULT_HOTKEYS)
+            {
+                additional_action_index = hotkeyId - NUM_DEFAULT_HOTKEYS;
+                if (additional_action_index >= m_additional_actions.size())
+                {
+                    custom_action_index = additional_action_index - m_additional_actions.size();
+                    is_custom_action_hotkey = custom_action_index < m_custom_actions.size();
+                }
+            }
+
+            // Try to capture selected text for all hotkey actions when the setting is enabled.
+            // If nothing is selected (clipboard unchanged), fall through to use existing clipboard content.
+            if (m_auto_copy_selection_custom_action)
+            {
+                send_copy_selection(); // best-effort; ignore failure
+            }
+
             m_process_manager.start();
 
             // hotkeyId in same order as set by get_hotkeys
@@ -781,7 +1105,6 @@ public:
             }
 
 
-            const auto additional_action_index = hotkeyId - NUM_DEFAULT_HOTKEYS;
             if (additional_action_index < m_additional_actions.size())
             {
                 const auto& id = m_additional_actions.at(additional_action_index).id;
@@ -794,7 +1117,6 @@ public:
                 return true;
             }
 
-            const auto custom_action_index = additional_action_index - m_additional_actions.size();
             if (custom_action_index < m_custom_actions.size())
             {
                 const auto id = m_custom_actions.at(custom_action_index).id;

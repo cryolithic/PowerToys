@@ -1,7 +1,13 @@
 #pragma once
 #include "Shortcut.h"
+#include "RemapShortcut.h"
 
 class LayoutMap;
+
+namespace KeyboardManagerInput
+{
+    class InputInterface;
+}
 
 namespace Helpers
 {
@@ -37,8 +43,10 @@ namespace Helpers
     // Function to set the dummy key events used for remapping shortcuts, required to ensure releasing a modifier doesn't trigger another action (For example, Win->Start Menu or Alt->Menu bar)
     void SetDummyKeyEvent(std::vector<INPUT>& keyEventArray, ULONG_PTR extraInfo);
 
-    // Function to set key events for remapping text.
-    void SetTextKeyEvents(std::vector<INPUT>& keyEventArray, const std::wstring& remapping);
+    // Function to send text input directly, with multiline support.
+    // Sends each line via KEYEVENTF_UNICODE and newlines via VK_RETURN
+    // as separate SendInput calls to avoid mixing event types.
+    void SendTextInput(const std::wstring& text, KeyboardManagerInput::InputInterface& ii);
 
     // Function to return window handle for a full screen UWP app
     HWND GetFullscreenUWPWindowHandle();
@@ -47,7 +55,8 @@ namespace Helpers
     std::wstring GetCurrentApplication(bool keepPath);
 
     // Function to set key events for modifier keys: When shortcutToCompare is passed (non-empty shortcut), then the key event is sent only if both shortcut's don't have the same modifier key. When keyToBeReleased is passed (non-NULL), then the key event is sent if either the shortcuts don't have the same modifier or if the shortcutToBeSent's modifier matches the keyToBeReleased
-    void SetModifierKeyEvents(const Shortcut& shortcutToBeSent, const ModifierKey& winKeyInvoked, std::vector<INPUT>& keyEventArray, bool isKeyDown, ULONG_PTR extraInfoFlag, const Shortcut& shortcutToCompare = Shortcut(), const DWORD& keyToBeReleased = NULL);
+    void SetModifierKeyEvents(const Shortcut& shortcutToBeSent, const Modifiers& modifiersKeys, std::vector<INPUT>& keyEventArray, bool isKeyDown, ULONG_PTR extraInfoFlag, const Shortcut& shortcutToCompare = Shortcut(), const DWORD& keyToBeReleased = NULL);
+
 
     // Function to filter the key codes for artificial key codes
     int32_t FilterArtificialKeys(const int32_t& key);

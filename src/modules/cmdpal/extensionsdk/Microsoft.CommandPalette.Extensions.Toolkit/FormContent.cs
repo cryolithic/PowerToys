@@ -4,45 +4,17 @@
 
 namespace Microsoft.CommandPalette.Extensions.Toolkit;
 
-public partial class FormContent : BaseObservable, IFormContent
+public partial class FormContent : BaseObservable, IFormContent2
 {
-    public virtual string DataJson
-    {
-        get;
-        set
-        {
-            field = value;
-            OnPropertyChanged(nameof(DataJson));
-        }
-    }
+    public virtual string DataJson { get; set => SetProperty(ref field, value); } = string.Empty;
 
-= string.Empty;
+    public virtual string StateJson { get; set => SetProperty(ref field, value); } = string.Empty;
 
-    public virtual string StateJson
-    {
-        get;
-        set
-        {
-            field = value;
-            OnPropertyChanged(nameof(StateJson));
-        }
-    }
-
-= string.Empty;
-
-    public virtual string TemplateJson
-    {
-        get;
-        set
-        {
-            field = value;
-            OnPropertyChanged(nameof(TemplateJson));
-        }
-    }
-
-= string.Empty;
+    public virtual string TemplateJson { get; set => SetProperty(ref field, value); } = string.Empty;
 
     public virtual ICommandResult SubmitForm(string inputs, string data) => SubmitForm(inputs);
 
     public virtual ICommandResult SubmitForm(string inputs) => CommandResult.KeepOpen();
+
+    public virtual ICommandResult SubmitAction(string actionId, string inputs, string data) => SubmitForm(inputs, data);
 }

@@ -11,6 +11,7 @@
 #include <d2d1helper.h>
 #include <dCommon.h>
 
+#include <common/Display/dpi_aware.h>
 #include <common/Display/monitors.h>
 #include <common/utils/serialized.h>
 
@@ -31,7 +32,11 @@ struct CommonState
 
     Measurement::Unit units = Measurement::Unit::Pixel;
 
-    POINT cursorPosSystemSpace = {}; // updated atomically
+    #pragma warning(push)
+    #pragma warning(disable : 4324)
+    alignas(8) POINT cursorPosSystemSpace = {}; // updated atomically
+    #pragma warning(pop)
+
     std::atomic_bool closeOnOtherMonitors = false;
 
     float GetPhysicalPx2MmRatio(HWND window) const
@@ -43,6 +48,13 @@ struct CommonState
             ratio = size.width_mm / static_cast<float>(size.width_physical);
         }
         return ratio;
+    }
+
+    float GetScreenDpi(HWND window) const
+    {
+        unsigned int dpi = DPIAware::DEFAULT_DPI;
+        DPIAware::GetScreenDPIForWindow(window, dpi);
+        return static_cast<float>(dpi);
     }
 };
 

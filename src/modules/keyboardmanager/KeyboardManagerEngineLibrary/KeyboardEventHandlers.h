@@ -17,15 +17,35 @@ namespace KeyboardEventHandlers
         bool AnyChordStarted;
     };
 
-    // Function to a handle a single key remap
+    // Function to handle a single key remap
     intptr_t HandleSingleKeyRemapEvent(KeyboardManagerInput::InputInterface& ii, LowlevelKeyboardEvent* data, State& state) noexcept;
 
+    // Function to handle an "Alone" single key remap (dual-key / Karabiner to_if_alone): applies the
+    // remapped action only when the source key is tapped alone; in combination the original key passes
+    // through. Must run before HandleSingleKeyRemapEvent in the hook dispatch chain.
+    intptr_t HandleSingleKeyAloneRemapEvent(KeyboardManagerInput::InputInterface& ii, LowlevelKeyboardEvent* data, State& state) noexcept;
+
+    // Promote every currently-pending ("tap candidate") "Alone" key into a started combination by
+    // injecting its original key-down as a real key/modifier, so in-combination behavior works (e.g.
+    // Right Ctrl acting as Ctrl for Ctrl+H, Ctrl+Click or Ctrl+Wheel). Shared by the keyboard
+    // combination path (another key was pressed) and the low-level mouse hook (a click/scroll while an
+    // alone key is held). `exceptKey` is left pending (used to skip the alone key's own auto-repeat);
+    // pass 0 to promote all pending keys.
+    void PromotePendingAloneKeysToCombination(KeyboardManagerInput::InputInterface& ii, State& state, DWORD exceptKey = 0) noexcept;
+
+    // Append a key event that re-injects an "Alone" key's ORIGINAL (source) key while preserving its
+    // numpad origin. Alone keys are tracked by the numpad-origin-encoded value of
+    // `LowlevelKeyboardEvent::vkCode` (see EncodeKeyNumpadOrigin), whose marker rides in bit 31; a bare
+    // `WORD` cast would drop it and re-inject e.g. a NumLock-off numpad navigation key as its extended
+    // (arrow-cluster) twin. Exposed for unit testing.
+    void AppendAloneSourceKeyEvent(std::vector<INPUT>& keyEventList, DWORD encodedKey, bool keyUp) noexcept;
+
     /* This feature has not been enabled (code from proof of concept stage)
-        // Function to a change a key's behavior from toggle to modifier
+        // Function to change a key's behavior from toggle to modifier
         __declspec(dllexport) intptr_t HandleSingleKeyToggleToModEvent(InputInterface& ii, LowlevelKeyboardEvent* data, State& state) noexcept;
     */
 
-    // Function to a handle a shortcut remap
+    // Function to handle a shortcut remap
     intptr_t HandleShortcutRemapEvent(KeyboardManagerInput::InputInterface& ii, LowlevelKeyboardEvent* data, State& state, const std::optional<std::wstring>& activatedApp = std::nullopt) noexcept;
 
     // Function to reset chord matching
@@ -68,15 +88,15 @@ namespace KeyboardEventHandlers
     // Function to get just the file name from a fill path
     std::wstring GetFileNameFromPath(const std::wstring& fullPath);
 
-    // Function to a find and show a running program
+    // Function to find and show a running program
     bool ShowProgram(DWORD pid, std::wstring programName, bool isNewProcess, bool minimizeIfVisible, int retryCount);
 
     bool HideProgram(DWORD pid, std::wstring programName, int retryCount);
 
-    // Function to a handle an os-level shortcut remap
+    // Function to handle an os-level shortcut remap
     intptr_t HandleOSLevelShortcutRemapEvent(KeyboardManagerInput::InputInterface& ii, LowlevelKeyboardEvent* data, State& state) noexcept;
 
-    // Function to a handle an app-specific shortcut remap
+    // Function to handle an app-specific shortcut remap
     intptr_t HandleAppSpecificShortcutRemapEvent(KeyboardManagerInput::InputInterface& ii, LowlevelKeyboardEvent* data, State& state) noexcept;
 
     // Function to generate a unicode string in response to a single keypress

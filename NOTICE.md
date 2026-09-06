@@ -10,13 +10,15 @@ This software incorporates material from third parties.
 - Installer/Runner
 - Measure tool
 - Peek
+- PowerDisplay
 - Registry Preview
+- ZoomIt
 
 ## Utility: Color Picker
 
 ### Martin Chrzan's Color Picker
 
-**Source**: https://github.com/martinchrzan/ColorPicker
+**Source**: <https://github.com/martinchrzan/ColorPicker>
 
 MIT License
 
@@ -48,7 +50,7 @@ We use the WyHash NuGet package for calculating stable hashes for strings.
 
 **Source**: [https://github.com/wangyi-fudan/wyhash](https://github.com/wangyi-fudan/wyhash)
 
-```
+```text
 This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -75,13 +77,114 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 ```
 
-## Utility: File Explorer Add-ins
+### ToolGood.Words.Pinyin
+
+We use the ToolGood.Words.Pinyin NuGet package for converting Chinese characters to pinyin.
+
+**Source**: [https://github.com/toolgood/ToolGood.Words.Pinyin](https://github.com/toolgood/ToolGood.Words.Pinyin)
+
+```text
+MIT License
+
+Copyright (c) 2020 ToolGood
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Utility: Command palette built-in extensions
+
+### Calculator
+
+#### exprtk
+
+We use the exprtk library (exprtk.hpp) to evaluate mathematical expressions.
+
+**Source**: [https://github.com/ArashPartow/exprtk](https://github.com/ArashPartow/exprtk)
+
+```text
+MIT License
+
+Copyright (c) 1999-2024 Arash Partow
+
+https://www.partow.net/programming/exprtk/index.html
+
+Permission is hereby granted, free of charge, to any person  obtaining
+a  copy  of  this software  and  associated  documentation files  (the
+"Software"), to  deal in  the Software  without restriction, including
+without limitation the  rights to use,  copy, modify, merge,  publish,
+distribute, sublicense,  and/or sell  copies of  the Software,  and to
+permit persons to whom the Software is furnished to do so, subject  to
+the following conditions:
+
+The  above  copyright  notice  and  this  permission  notice  shall be
+included in all copies or substantial portions of the Software.
+
+THE  SOFTWARE  IS PROVIDED  "AS  IS", WITHOUT  WARRANTY  OF ANY  KIND,
+EXPRESS OR  IMPLIED, INCLUDING  BUT NOT  LIMITED TO  THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS  OR COPYRIGHT HOLDERS BE LIABLE FOR  ANY
+CLAIM, DAMAGES OR OTHER LIABILITY,  WHETHER IN AN ACTION OF  CONTRACT,
+TORT OR  OTHERWISE, ARISING  FROM, OUT  OF OR  IN CONNECTION  WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## Utility: PowerToys Run built-in extensions
+
+### Calculator
+
+#### Mages
+
+We use the Mages NuGet package for calculating the result of expression.
+
+**Source**: [https://github.com/FlorianRappl/Mages](https://github.com/FlorianRappl/Mages)
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2016 - 2025 Florian Rappl
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Utility: File Explorer add-ins
 
 ### Monaco Editor
 
-**Source**: https://github.com/Microsoft/monaco-editor
+**Source**: <https://github.com/Microsoft/monaco-editor>
 
-**Additional third party notifications:** https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt
+**Additional third party notifications:** <https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt>
 
 The MIT License (MIT)
 
@@ -105,9 +208,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### The Quite OK Image Format reference decoder
+### The Quite OK image format reference decoder
 
-**Source**: https://github.com/phoboslab/qoi
+**Source**: <https://github.com/phoboslab/qoi>
 
 **Note**: [@pedrolamas](https://github.com/pedrolamas) translated and adapted the reference decoder code to C# that is in PowerToys from the original C++ implementation.
 
@@ -137,9 +240,9 @@ SOFTWARE.
 
 We use the UTF.Unknown NuGet package for detecting encoding in text/code files.
 
-**Source**: https://github.com/CharsetDetector/UTF-unknown
+**Source**: <https://github.com/CharsetDetector/UTF-unknown>
 
-```
+```text
                           MOZILLA PUBLIC LICENSE
                                 Version 1.1
 
@@ -613,9 +716,9 @@ EXHIBIT A -Mozilla Public License.
 
 ## Utility: ImageResizer
 
-### Brice Lams's Image Resizer License
+### Brice Lams's Image Resizer license
 
-**Source**: https://github.com/bricelam/ImageResizer/
+**Source**: <https://github.com/bricelam/ImageResizer/>
 
 The MIT License (MIT)
 
@@ -641,10 +744,10 @@ THE SOFTWARE.
 
 ## Utility: PowerToys Run
 
-### Wox License
+### Wox license
 
-**Fork project source**: https://github.com/jjw24/Wox/
-**Base project source**: https://github.com/Wox-launcher/Wox
+**Fork project source**: <https://github.com/jjw24/Wox/>
+**Base project source**: <https://github.com/Wox-launcher/Wox>
 
 The MIT License (MIT)
 
@@ -667,9 +770,9 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### Beta Tadele's Window Walker License
+### Beta Tadele's Window Walker license
 
-**Source**: https://github.com/betsegaw/windowwalker
+**Source**: <https://github.com/betsegaw/windowwalker>
 
 The MIT License (MIT)
 
@@ -683,9 +786,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Utility: PowerRename
 
-### Chris Davis's SmartRename License
+### Chris Davis's SmartRename license
 
-**Source**: https://github.com/chrdavis/SmartRename
+**Source**: <https://github.com/chrdavis/SmartRename>
 
 MIT License
 
@@ -713,7 +816,7 @@ SOFTWARE.
 
 ### spdlog
 
-**Source**: https://github.com/gabime/spdlog
+**Source**: <https://github.com/gabime/spdlog>
 
 The MIT License (MIT)
 
@@ -738,12 +841,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 -- NOTE: Third party dependency used by this software --
-This software depends on the fmt lib (MIT License),
-and users must comply to its license: https://github.com/fmtlib/fmt/blob/master/LICENSE.rst
+This software depends on the fmt lib (MIT License), and users must comply to its license:
+<https://github.com/fmtlib/fmt/blob/master/LICENSE.rst>
 
 ### expected-lite
 
-**Source**: https://github.com/martinmoene/expected-lite
+**Source**: <https://github.com/martinmoene/expected-lite>
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -771,32 +874,27 @@ DEALINGS IN THE SOFTWARE.
 
 ### zip
 
-**Source**: https://github.com/kuba--/zip
+**Source**: <https://github.com/kuba--/zip>
 
-This is free and unencumbered software released into the public domain.
+All Rights Reserved.
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-For more information, please refer to <http://unlicense.org/>
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ## Utility: Measure tool
 
@@ -804,7 +902,7 @@ For more information, please refer to <http://unlicense.org/>
 
 We adopted some functions from it.
 
-**Source**: https://github.com/DLTcollab/sse2neon
+**Source**: <https://github.com/DLTcollab/sse2neon>
 
 sse2neon is freely redistributable under the MIT License.
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -827,9 +925,9 @@ SOFTWARE.
 
 ### Monaco Editor
 
-**Source**: https://github.com/Microsoft/monaco-editor
+**Source**: <https://github.com/Microsoft/monaco-editor>
 
-**Additional third party notifications:** https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt
+**Additional third party notifications:** <https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt>
 
 The MIT License (MIT)
 
@@ -853,11 +951,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### The Quite OK Image Format reference decoder
+### The Quite OK image format reference decoder
 
-**Source**: https://github.com/phoboslab/qoi
+**Source**: <https://github.com/phoboslab/qoi>
 
-**Note**: [@pedrolamas](https://github.com/pedrolamas) translated and adapted the reference decoder code to C# that is in PowerToys from the original C++ implementation.
+**Note**: [@pedrolamas](https://github.com/pedrolamas) translated and adapted the reference decoder code to C# that is in PowerToys, from the original C++ implementation.
 
 MIT License
 
@@ -881,13 +979,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### UTF Unknown
+### UTF unknown
 
 We use the UTF.Unknown NuGet package for detecting encoding in text/code files.
 
-**Source**: https://github.com/CharsetDetector/UTF-unknown
+**Source**: <https://github.com/CharsetDetector/UTF-unknown>
 
-```
+```text
                           MOZILLA PUBLIC LICENSE
                                 Version 1.1
 
@@ -1361,13 +1459,44 @@ EXHIBIT A -Mozilla Public License.
 
 ## Utility: Registry Preview
 
+### HexBox.WinUI
+
+We use HexBox.WinUI to show a preview of binary values.
+
+**Source**: <https://github.com/hotkidfamily/HexBox.WinUI>
+
+```text
+MIT License
+
+Copyright (c) 2019 Filip Jeremic
+Copyright (c) 2024~2025 hotkidfamily@gmail.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ### Monaco Editor
 
-**Source**: https://github.com/Microsoft/monaco-editor
+**Source**: <https://github.com/Microsoft/monaco-editor>
 
-**Additional third party notifications:** https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt
+**Additional third party notifications:** <https://github.com/microsoft/monaco-editor/blob/main/ThirdPartyNotices.txt>
 
-```
+```text
 The MIT License (MIT)
 
 Copyright (c) 2016 - present Microsoft Corporation
@@ -1391,89 +1520,150 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Utility: PowerDisplay
+
+### Twinkle Tray
+
+PowerDisplay's DDC/CI implementation references techniques from Twinkle Tray.
+
+**Source**: <https://github.com/xanderfrangos/twinkle-tray>
+
+MIT License
+
+Copyright © 2020 Xander Frangos
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Utility: ZoomIt
+
+### libwebp
+
+ZoomIt uses libwebp to encode screenshots in the WebP image format.
+
+**Source**: <https://github.com/webmproject/libwebp>
+
+BSD-3-Clause License
+
+Copyright (c) 2010, Google Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in
+    the documentation and/or other materials provided with the
+    distribution.
+
+  * Neither the name of Google nor the names of its contributors may
+    be used to endorse or promote products derived from this software
+    without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Additional IP Rights Grant (Patents)
+
+"These implementations" means the copyrightable works that implement the WebM
+codecs distributed by Google as part of the WebM Project.
+
+Google hereby grants to you a perpetual, worldwide, non-exclusive, no-charge,
+royalty-free, irrevocable (except as stated in this section) patent license to
+make, have made, use, offer to sell, sell, import, transfer, and otherwise
+run, modify and propagate the contents of these implementations of WebM, where
+such license applies only to those patent claims, both currently owned by
+Google and acquired in the future, licensable by Google that are necessarily
+infringed by these implementations of WebM. This grant does not include claims
+that would be infringed only as a consequence of further modification of these
+implementations. If you or your agent or exclusive licensee institute or order
+or agree to the institution of patent litigation or any other patent
+enforcement activity against any entity (including a cross-claim or
+counterclaim in a lawsuit) alleging that any of these implementations of WebM
+or any code incorporated within any of these implementations of WebM
+constitute direct or contributory patent infringement, or inducement of
+patent infringement, then any patent rights granted to you under this License
+for these implementations of WebM shall terminate as of the date such
+litigation is filed.
+
 ## NuGet Packages used by PowerToys
 
-
-- AdaptiveCards.ObjectModel.WinUI3 2.0.0-beta
-- AdaptiveCards.Rendering.WinUI3 2.1.0-beta
-- AdaptiveCards.Templating 2.0.2
-- Appium.WebDriver 4.4.5
-- Azure.AI.OpenAI 1.0.0-beta.17
-- CommunityToolkit.Common 8.4.0
-- CommunityToolkit.Mvvm 8.4.0
-- CommunityToolkit.WinUI.Animations 8.2.250129-preview2
-- CommunityToolkit.WinUI.Collections 8.2.250129-preview2
-- CommunityToolkit.WinUI.Controls.Primitives 8.2.250129-preview2
-- CommunityToolkit.WinUI.Controls.Segmented 8.2.250129-preview2
-- CommunityToolkit.WinUI.Controls.SettingsControls 8.2.250129-preview2
-- CommunityToolkit.WinUI.Controls.Sizers 8.2.250129-preview2
-- CommunityToolkit.WinUI.Converters 8.2.250129-preview2
-- CommunityToolkit.WinUI.Extensions 8.2.250129-preview2
-- CommunityToolkit.WinUI.UI.Controls.DataGrid 7.1.2
-- CommunityToolkit.WinUI.UI.Controls.Markdown 7.1.2
-- ControlzEx 6.0.0
-- HelixToolkit 2.24.0
-- HelixToolkit.Core.Wpf 2.24.0
-- hyjiacan.pinyin4net 4.1.1
-- Interop.Microsoft.Office.Interop.OneNote 1.1.0.2
-- LazyCache 2.4.0
-- Mages 3.0.0
-- Markdig.Signed 0.34.0
-- MessagePack 2.5.187
-- Microsoft.Bcl.AsyncInterfaces 9.0.3
-- Microsoft.CodeAnalysis.NetAnalyzers 9.0.0
-- Microsoft.Data.Sqlite 9.0.3
-- Microsoft.Diagnostics.Tracing.TraceEvent 3.1.16
-- Microsoft.DotNet.ILCompiler (A)
-- Microsoft.Extensions.DependencyInjection 9.0.3
-- Microsoft.Extensions.Hosting 9.0.3
-- Microsoft.Extensions.Hosting.WindowsServices 9.0.3
-- Microsoft.Extensions.Logging 9.0.3
-- Microsoft.Extensions.Logging.Abstractions 9.0.3
-- Microsoft.NET.ILLink.Tasks (A)
-- Microsoft.SemanticKernel 1.15.0
-- Microsoft.Toolkit.Uwp.Notifications 7.1.2
-- Microsoft.Web.WebView2 1.0.2903.40
-- Microsoft.Win32.SystemEvents 9.0.3
-- Microsoft.Windows.Compatibility 9.0.3
-- Microsoft.Windows.CsWin32 0.2.46-beta
-- Microsoft.Windows.CsWinRT 2.2.0
-- Microsoft.Windows.SDK.BuildTools 10.0.22621.2428
-- Microsoft.WindowsAppSDK 1.6.250205002
-- Microsoft.WindowsPackageManager.ComInterop 1.10.120-preview
-- Microsoft.Xaml.Behaviors.WinUI.Managed 2.0.9
-- Microsoft.Xaml.Behaviors.Wpf 1.1.39
-- ModernWpfUI 0.9.4
-- Moq 4.18.4
-- MSTest 3.6.3
-- NLog.Extensions.Logging 5.3.8
-- NLog.Schema 5.2.8
-- OpenAI 2.0.0
-- ReverseMarkdown 4.1.0
-- ScipBe.Common.Office.OneNote 3.0.1
-- SharpCompress 0.37.2
-- StreamJsonRpc 2.19.27
-- StyleCop.Analyzers 1.2.0-beta.556
-- System.CodeDom 9.0.3
-- System.CommandLine 2.0.0-beta4.22272.1
-- System.ComponentModel.Composition 9.0.3
-- System.Configuration.ConfigurationManager 9.0.3
-- System.Data.OleDb 9.0.3
-- System.Data.SqlClient 4.8.6
-- System.Diagnostics.EventLog 9.0.3
-- System.Diagnostics.PerformanceCounter 9.0.3
-- System.Drawing.Common 9.0.3
-- System.IO.Abstractions 21.0.29
-- System.IO.Abstractions.TestingHelpers 21.0.29
-- System.Management 9.0.3
-- System.Reactive 6.0.1
-- System.Runtime.Caching 9.0.3
-- System.ServiceProcess.ServiceController 9.0.3
-- System.Text.Encoding.CodePages 9.0.3
-- System.Text.Json 9.0.3
-- UnicodeInformation 2.6.0
-- UnitsNet 5.56.0
-- UTF.Unknown 2.5.1
-- WinUIEx 2.2.0
-- WPF-UI 3.0.5
-- WyHash 1.0.5
+- AdaptiveCards.ObjectModel.WinUI3
+- AdaptiveCards.Rendering.WinUI3
+- AdaptiveCards.Templating
+- Appium.WebDriver
+- CoenM.ImageSharp.ImageHash
+- CommunityToolkit.Common
+- CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock
+- CommunityToolkit.Labs.WinUI.Controls.OpacityMaskView
+- CommunityToolkit.Mvvm
+- CommunityToolkit.WinUI.Animations
+- CommunityToolkit.WinUI.Collections
+- CommunityToolkit.WinUI.Controls.Primitives
+- CommunityToolkit.WinUI.Controls.Segmented
+- CommunityToolkit.WinUI.Controls.SettingsControls
+- CommunityToolkit.WinUI.Controls.Sizers
+- CommunityToolkit.WinUI.Converters
+- CommunityToolkit.WinUI.Extensions
+- CommunityToolkit.WinUI.UI.Controls.DataGrid
+- ControlzEx
+- HelixToolkit
+- HelixToolkit.Core.Wpf
+- hyjiacan.pinyin4net
+- Interop.Microsoft.Office.Interop.OneNote
+- LazyCache
+- Mages
+- Markdig.Signed
+- MessagePack
+- ModernWpfUI
+- Moq
+- MSTest
+- MSTest.TestFramework
+- NJsonSchema
+- NLog
+- NLog.Extensions.Logging
+- NLog.Schema
+- OpenAI
+- ReverseMarkdown
+- ScipBe.Common.Office.OneNote
+- ScreenRecorderLib
+- SharpCompress
+- Shmuelie.WinRTServer
+- SkiaSharp.Views.WinUI
+- StreamJsonRpc
+- StyleCop.Analyzers
+- ToolGood.Words.Pinyin
+- UnicodeInformation
+- UnitsNet
+- UTF.Unknown
+- WinUIEx
+- WmiLight
+- WyHash
+- YamlDotNet

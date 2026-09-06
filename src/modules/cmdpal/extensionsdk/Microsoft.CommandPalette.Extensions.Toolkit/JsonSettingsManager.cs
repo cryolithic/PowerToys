@@ -28,7 +28,8 @@ public abstract class JsonSettingsManager
         var filePath = FilePath;
         if (!File.Exists(filePath))
         {
-            ExtensionHost.LogMessage(new LogMessage() { Message = "The provided settings file does not exist" });
+            // No settings file yet: keep in-memory defaults without persisting.
+            // The file is created on the first user-initiated settings change.
             return;
         }
 
@@ -41,6 +42,7 @@ public abstract class JsonSettingsManager
             if (JsonNode.Parse(jsonContent) is JsonObject savedSettings)
             {
                 Settings.Update(jsonContent);
+                LoadAdditionalSettings(savedSettings);
             }
             else
             {
@@ -76,9 +78,10 @@ public abstract class JsonSettingsManager
                 {
                     foreach (var item in newSettings)
                     {
-                        savedSettings[item.Key] = item.Value != null ? item.Value.DeepClone() : null;
+                        savedSettings[item.Key] = item.Value is not null ? item.Value.DeepClone() : null;
                     }
 
+                    SaveAdditionalSettings(savedSettings);
                     var serialized = savedSettings.ToJsonString(_serializerOptions);
                     File.WriteAllText(FilePath, serialized);
                 }
@@ -96,5 +99,13 @@ public abstract class JsonSettingsManager
         {
             ExtensionHost.LogMessage(new LogMessage() { Message = ex.ToString() });
         }
+    }
+
+    protected virtual void LoadAdditionalSettings(JsonObject settings)
+    {
+    }
+
+    protected virtual void SaveAdditionalSettings(JsonObject settings)
+    {
     }
 }

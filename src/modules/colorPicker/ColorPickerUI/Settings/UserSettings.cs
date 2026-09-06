@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel.Composition;
 using System.IO;
 using System.IO.Abstractions;
 using System.Text.Json;
@@ -20,7 +19,6 @@ using Microsoft.PowerToys.Telemetry;
 
 namespace ColorPicker.Settings
 {
-    [Export(typeof(IUserSettings))]
     public class UserSettings : IUserSettings
     {
         private readonly SettingsUtils _settingsUtils;
@@ -42,14 +40,16 @@ namespace ColorPicker.Settings
             WriteIndented = true,
         };
 
-        [ImportingConstructor]
         public UserSettings(Helpers.IThrottledActionInvoker throttledActionInvoker)
         {
-            _settingsUtils = new SettingsUtils();
+            _settingsUtils = SettingsUtils.Default;
             ChangeCursor = new SettingItem<bool>(true);
             ActivationShortcut = new SettingItem<string>(DefaultActivationShortcut);
             CopiedColorRepresentation = new SettingItem<string>(ColorRepresentationType.HEX.ToString());
-            ActivationAction = new SettingItem<ColorPickerActivationAction>(ColorPickerActivationAction.OpenEditor);
+            ActivationAction = new SettingItem<ColorPickerActivationAction>(ColorPickerActivationAction.OpenColorPicker);
+            PrimaryClickAction = new SettingItem<ColorPickerClickAction>(ColorPickerClickAction.PickColorThenEditor);
+            MiddleClickAction = new SettingItem<ColorPickerClickAction>(ColorPickerClickAction.PickColorAndClose);
+            SecondaryClickAction = new SettingItem<ColorPickerClickAction>(ColorPickerClickAction.Close);
             ColorHistoryLimit = new SettingItem<int>(20);
             ColorHistory.CollectionChanged += ColorHistory_CollectionChanged;
             ShowColorName = new SettingItem<bool>(false);
@@ -77,6 +77,12 @@ namespace ColorPicker.Settings
         public SettingItem<string> CopiedColorRepresentationFormat { get; set; }
 
         public SettingItem<ColorPickerActivationAction> ActivationAction { get; private set; }
+
+        public SettingItem<ColorPickerClickAction> PrimaryClickAction { get; private set; }
+
+        public SettingItem<ColorPickerClickAction> MiddleClickAction { get; private set; }
+
+        public SettingItem<ColorPickerClickAction> SecondaryClickAction { get; private set; }
 
         public RangeObservableCollection<string> ColorHistory { get; private set; } = new RangeObservableCollection<string>();
 
@@ -121,6 +127,9 @@ namespace ColorPicker.Settings
                                 CopiedColorRepresentation.Value = settings.Properties.CopiedColorRepresentation;
                                 CopiedColorRepresentationFormat = new SettingItem<string>(string.Empty);
                                 ActivationAction.Value = settings.Properties.ActivationAction;
+                                PrimaryClickAction.Value = settings.Properties.PrimaryClickAction;
+                                MiddleClickAction.Value = settings.Properties.MiddleClickAction;
+                                SecondaryClickAction.Value = settings.Properties.SecondaryClickAction;
                                 ColorHistoryLimit.Value = settings.Properties.ColorHistoryLimit;
                                 ShowColorName.Value = settings.Properties.ShowColorName;
 
@@ -171,16 +180,6 @@ namespace ColorPicker.Settings
                             }
 
                             retry = false;
-                        }
-                        catch (IOException ex)
-                        {
-                            if (retryCount > MaxNumberOfRetry)
-                            {
-                                retry = false;
-                            }
-
-                            Logger.LogError("Failed to read changed settings", ex);
-                            Thread.Sleep(500);
                         }
                         catch (Exception ex)
                         {

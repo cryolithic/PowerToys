@@ -8,22 +8,29 @@ namespace winrt::PowerToys::GPOWrapper::implementation
     {
         GPOWrapper() = default;
         static GpoRuleConfigured GetConfiguredAlwaysOnTopEnabledValue();
+        static GpoRuleConfigured GetConfiguredAltWindowCycleEnabledValue();
         static GpoRuleConfigured GetConfiguredAwakeEnabledValue();
         static GpoRuleConfigured GetConfiguredCmdNotFoundEnabledValue();
         static GpoRuleConfigured GetConfiguredCmdPalEnabledValue();
         static GpoRuleConfigured GetConfiguredColorPickerEnabledValue();
         static GpoRuleConfigured GetConfiguredCropAndLockEnabledValue();
+        static GpoRuleConfigured GetConfiguredLightSwitchEnabledValue();
+        static GpoRuleConfigured GetConfiguredPowerDisplayEnabledValue();
+        static GpoRuleConfigured GetConfiguredGrabAndMoveEnabledValue();
         static GpoRuleConfigured GetConfiguredFancyZonesEnabledValue();
         static GpoRuleConfigured GetConfiguredFileLocksmithEnabledValue();
         static GpoRuleConfigured GetConfiguredSvgPreviewEnabledValue();
         static GpoRuleConfigured GetConfiguredMarkdownPreviewEnabledValue();
+        static GpoRuleConfigured GetConfiguredMarkdownLocalImagesEnabledValue();
         static GpoRuleConfigured GetConfiguredMonacoPreviewEnabledValue();
         static GpoRuleConfigured GetConfiguredMouseWithoutBordersEnabledValue();
         static GpoRuleConfigured GetConfiguredPdfPreviewEnabledValue();
         static GpoRuleConfigured GetConfiguredGcodePreviewEnabledValue();
+        static GpoRuleConfigured GetConfiguredBgcodePreviewEnabledValue();
         static GpoRuleConfigured GetConfiguredSvgThumbnailsEnabledValue();
         static GpoRuleConfigured GetConfiguredPdfThumbnailsEnabledValue();
         static GpoRuleConfigured GetConfiguredGcodeThumbnailsEnabledValue();
+        static GpoRuleConfigured GetConfiguredBgcodeThumbnailsEnabledValue();
         static GpoRuleConfigured GetConfiguredStlThumbnailsEnabledValue();
         static GpoRuleConfigured GetConfiguredHostsFileEditorEnabledValue();
         static GpoRuleConfigured GetConfiguredImageResizerEnabledValue();
@@ -32,6 +39,7 @@ namespace winrt::PowerToys::GPOWrapper::implementation
         static GpoRuleConfigured GetConfiguredMouseHighlighterEnabledValue();
         static GpoRuleConfigured GetConfiguredMouseJumpEnabledValue();
         static GpoRuleConfigured GetConfiguredMousePointerCrosshairsEnabledValue();
+        static GpoRuleConfigured GetConfiguredCursorWrapEnabledValue();
         static GpoRuleConfigured GetConfiguredPowerRenameEnabledValue();
         static GpoRuleConfigured GetConfiguredPowerLauncherEnabledValue();
         static GpoRuleConfigured GetConfiguredQuickAccentEnabledValue();
@@ -44,6 +52,7 @@ namespace winrt::PowerToys::GPOWrapper::implementation
         static GpoRuleConfigured GetConfiguredPeekEnabledValue();
         static GpoRuleConfigured GetDisableNewUpdateToastValue();
         static GpoRuleConfigured GetDisableAutomaticUpdateDownloadValue();
+        static GpoRuleConfigured GetDisablePreviewUpdatesValue();
         static GpoRuleConfigured GetDisableShowWhatsNewAfterUpdatesValue();
         static GpoRuleConfigured GetAllowExperimentationValue();
         static GpoRuleConfigured GetRunPluginEnabledValue(winrt::hstring const& pluginID);
@@ -51,6 +60,13 @@ namespace winrt::PowerToys::GPOWrapper::implementation
         static GpoRuleConfigured GetConfiguredQoiPreviewEnabledValue();
         static GpoRuleConfigured GetConfiguredQoiThumbnailsEnabledValue();
         static GpoRuleConfigured GetAllowedAdvancedPasteOnlineAIModelsValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteOpenAIValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteAzureOpenAIValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteAzureAIInferenceValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteMistralValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteGoogleValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteOllamaValue();
+        static GpoRuleConfigured GetAllowedAdvancedPasteFoundryLocalValue();
         static GpoRuleConfigured GetConfiguredNewPlusEnabledValue();
         static GpoRuleConfigured GetConfiguredWorkspacesEnabledValue();
         static GpoRuleConfigured GetConfiguredMwbClipboardSharingEnabledValue();
@@ -66,6 +82,7 @@ namespace winrt::PowerToys::GPOWrapper::implementation
         static GpoRuleConfigured GetAllowDataDiagnosticsValue();
         static GpoRuleConfigured GetConfiguredRunAtStartupValue();
         static GpoRuleConfigured GetConfiguredNewPlusReplaceVariablesValue();
+        static GpoRuleConfigured GetConfiguredNewPlusHideBuiltInNewContextMenuValue();
     };
 }
 

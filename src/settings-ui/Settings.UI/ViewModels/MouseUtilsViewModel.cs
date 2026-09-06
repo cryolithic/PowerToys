@@ -3,10 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-
 using global::PowerToys.GPOWrapper;
+using Microsoft.PowerToys.Settings.UI.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Settings.UI.Library.Helpers;
 using Microsoft.PowerToys.Settings.UI.Library.Interfaces;
@@ -14,9 +15,11 @@ using Microsoft.PowerToys.Settings.Utilities;
 
 namespace Microsoft.PowerToys.Settings.UI.ViewModels
 {
-    public partial class MouseUtilsViewModel : Observable
+    public partial class MouseUtilsViewModel : PageViewModelBase
     {
-        private ISettingsUtils SettingsUtils { get; set; }
+        protected override string ModuleName => "MouseUtils";
+
+        private SettingsUtils SettingsUtils { get; set; }
 
         private GeneralSettings GeneralSettingsConfig { get; set; }
 
@@ -26,7 +29,9 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
         private MousePointerCrosshairsSettings MousePointerCrosshairsSettingsConfig { get; set; }
 
-        public MouseUtilsViewModel(ISettingsUtils settingsUtils, ISettingsRepository<GeneralSettings> settingsRepository, ISettingsRepository<FindMyMouseSettings> findMyMouseSettingsRepository, ISettingsRepository<MouseHighlighterSettings> mouseHighlighterSettingsRepository, ISettingsRepository<MouseJumpSettings> mouseJumpSettingsRepository, ISettingsRepository<MousePointerCrosshairsSettings> mousePointerCrosshairsSettingsRepository, Func<string, int> ipcMSGCallBackFunc)
+        private CursorWrapSettings CursorWrapSettingsConfig { get; set; }
+
+        public MouseUtilsViewModel(SettingsUtils settingsUtils, ISettingsRepository<GeneralSettings> settingsRepository, ISettingsRepository<FindMyMouseSettings> findMyMouseSettingsRepository, ISettingsRepository<MouseHighlighterSettings> mouseHighlighterSettingsRepository, ISettingsRepository<MouseJumpSettings> mouseJumpSettingsRepository, ISettingsRepository<MousePointerCrosshairsSettings> mousePointerCrosshairsSettingsRepository, ISettingsRepository<CursorWrapSettings> cursorWrapSettingsRepository, Func<string, int> ipcMSGCallBackFunc)
         {
             SettingsUtils = settingsUtils;
 
@@ -47,12 +52,11 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             _findMyMouseDoNotActivateOnGameMode = FindMyMouseSettingsConfig.Properties.DoNotActivateOnGameMode.Value;
 
             string backgroundColor = FindMyMouseSettingsConfig.Properties.BackgroundColor.Value;
-            _findMyMouseBackgroundColor = !string.IsNullOrEmpty(backgroundColor) ? backgroundColor : "#000000";
+            _findMyMouseBackgroundColor = !string.IsNullOrEmpty(backgroundColor) ? backgroundColor : "#80000000";
 
             string spotlightColor = FindMyMouseSettingsConfig.Properties.SpotlightColor.Value;
-            _findMyMouseSpotlightColor = !string.IsNullOrEmpty(spotlightColor) ? spotlightColor : "#FFFFFF";
+            _findMyMouseSpotlightColor = !string.IsNullOrEmpty(spotlightColor) ? spotlightColor : "#80FFFFFF";
 
-            _findMyMouseOverlayOpacity = FindMyMouseSettingsConfig.Properties.OverlayOpacity.Value;
             _findMyMouseSpotlightRadius = FindMyMouseSettingsConfig.Properties.SpotlightRadius.Value;
             _findMyMouseAnimationDurationMs = FindMyMouseSettingsConfig.Properties.AnimationDurationMs.Value;
             _findMyMouseSpotlightInitialZoom = FindMyMouseSettingsConfig.Properties.SpotlightInitialZoom.Value;
@@ -65,13 +69,20 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
             MouseHighlighterSettingsConfig = mouseHighlighterSettingsRepository.SettingsConfig;
             string leftClickColor = MouseHighlighterSettingsConfig.Properties.LeftButtonClickColor.Value;
-            _highlighterLeftButtonClickColor = !string.IsNullOrEmpty(leftClickColor) ? leftClickColor : "#a6FFFF00";
+            _highlighterLeftButtonClickColor = !string.IsNullOrEmpty(leftClickColor) ? leftClickColor : MouseHighlighterProperties.DefaultLeftButtonClickColor;
 
             string rightClickColor = MouseHighlighterSettingsConfig.Properties.RightButtonClickColor.Value;
-            _highlighterRightButtonClickColor = !string.IsNullOrEmpty(rightClickColor) ? rightClickColor : "#a60000FF";
+            _highlighterRightButtonClickColor = !string.IsNullOrEmpty(rightClickColor) ? rightClickColor : MouseHighlighterProperties.DefaultRightButtonClickColor;
 
             string alwaysColor = MouseHighlighterSettingsConfig.Properties.AlwaysColor.Value;
             _highlighterAlwaysColor = !string.IsNullOrEmpty(alwaysColor) ? alwaysColor : "#00FF0000";
+            _isSpotlightModeEnabled = MouseHighlighterSettingsConfig.Properties.SpotlightMode.Value;
+            _isRippleModeEnabled = MouseHighlighterSettingsConfig.Properties.RippleMode.Value;
+            _rippleSize = MouseHighlighterSettingsConfig.Properties.RippleSize.Value;
+            _rippleIntensity = MouseHighlighterSettingsConfig.Properties.RippleIntensity.Value;
+            _rippleDurationMs = MouseHighlighterSettingsConfig.Properties.RippleDurationMs.Value;
+            _rippleShowDragTrail = MouseHighlighterSettingsConfig.Properties.RippleShowDragTrail.Value;
+            _rippleShowReleasePulse = MouseHighlighterSettingsConfig.Properties.RippleShowReleasePulse.Value;
 
             _highlighterRadius = MouseHighlighterSettingsConfig.Properties.HighlightRadius.Value;
             _highlightFadeDelayMs = MouseHighlighterSettingsConfig.Properties.HighlightFadeDelayMs.Value;
@@ -97,10 +108,29 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             _mousePointerCrosshairsAutoHide = MousePointerCrosshairsSettingsConfig.Properties.CrosshairsAutoHide.Value;
             _mousePointerCrosshairsIsFixedLengthEnabled = MousePointerCrosshairsSettingsConfig.Properties.CrosshairsIsFixedLengthEnabled.Value;
             _mousePointerCrosshairsFixedLength = MousePointerCrosshairsSettingsConfig.Properties.CrosshairsFixedLength.Value;
+            _mousePointerCrosshairsOrientation = MousePointerCrosshairsSettingsConfig.Properties.CrosshairsOrientation.Value;
             _mousePointerCrosshairsAutoActivate = MousePointerCrosshairsSettingsConfig.Properties.AutoActivate.Value;
 
+            ArgumentNullException.ThrowIfNull(cursorWrapSettingsRepository);
+
+            CursorWrapSettingsConfig = cursorWrapSettingsRepository.SettingsConfig;
+            _cursorWrapAutoActivate = CursorWrapSettingsConfig.Properties.AutoActivate.Value;
+
+            // Null-safe access in case property wasn't upgraded yet - default to TRUE
+            _cursorWrapDisableWrapDuringDrag = CursorWrapSettingsConfig.Properties.DisableWrapDuringDrag?.Value ?? true;
+
+            // Null-safe access in case property wasn't upgraded yet - default to 0 (Both)
+            _cursorWrapWrapMode = CursorWrapSettingsConfig.Properties.WrapMode?.Value ?? 0;
+
+            // Null-safe access in case property wasn't upgraded yet - default to 0 (Always)
+            _cursorWrapActivationMode = CursorWrapSettingsConfig.Properties.ActivationMode?.Value ?? 0;
+
+            // Null-safe access in case property wasn't upgraded yet - default to false
+            _cursorWrapDisableOnSingleMonitor = CursorWrapSettingsConfig.Properties.DisableCursorWrapOnSingleMonitor?.Value ?? false;
+
             int isEnabled = 0;
-            NativeMethods.SystemParametersInfo(NativeMethods.SPI_GETCLIENTAREAANIMATION, 0, ref isEnabled, 0);
+
+            Utilities.NativeMethods.SystemParametersInfo(Utilities.NativeMethods.SPI_GETCLIENTAREAANIMATION, 0, ref isEnabled, 0);
             _isAnimationEnabledBySystem = isEnabled != 0;
 
             // set the callback functions value to handle outgoing IPC message.
@@ -139,13 +169,41 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             if (_mousePointerCrosshairsEnabledGpoRuleConfiguration == GpoRuleConfigured.Disabled || _mousePointerCrosshairsEnabledGpoRuleConfiguration == GpoRuleConfigured.Enabled)
             {
                 // Get the enabled state from GPO.
-                _mousePointerCrosshairsEnabledStateIsGPOConfigured = true;
+                _mousePointerCrosshairsEnabledStateGPOConfigured = true;
                 _isMousePointerCrosshairsEnabled = _mousePointerCrosshairsEnabledGpoRuleConfiguration == GpoRuleConfigured.Enabled;
             }
             else
             {
                 _isMousePointerCrosshairsEnabled = GeneralSettingsConfig.Enabled.MousePointerCrosshairs;
             }
+
+            _cursorWrapEnabledGpoRuleConfiguration = GPOWrapper.GetConfiguredCursorWrapEnabledValue();
+            if (_cursorWrapEnabledGpoRuleConfiguration == GpoRuleConfigured.Disabled || _cursorWrapEnabledGpoRuleConfiguration == GpoRuleConfigured.Enabled)
+            {
+                // Get the enabled state from GPO.
+                _cursorWrapEnabledStateIsGPOConfigured = true;
+                _isCursorWrapEnabled = _cursorWrapEnabledGpoRuleConfiguration == GpoRuleConfigured.Enabled;
+            }
+            else
+            {
+                _isCursorWrapEnabled = GeneralSettingsConfig.Enabled.CursorWrap;
+            }
+        }
+
+        public override Dictionary<string, HotkeySettings[]> GetAllHotkeySettings()
+        {
+            var hotkeysDict = new Dictionary<string, HotkeySettings[]>
+            {
+                [FindMyMouseSettings.ModuleName] = [FindMyMouseActivationShortcut],
+                [MouseHighlighterSettings.ModuleName] = [MouseHighlighterActivationShortcut],
+                [MousePointerCrosshairsSettings.ModuleName] = [
+                    MousePointerCrosshairsActivationShortcut,
+                    GlidingCursorActivationShortcut],
+                [MouseJumpSettings.ModuleName] = [MouseJumpActivationShortcut],
+                [CursorWrapSettings.ModuleName] = [CursorWrapActivationShortcut],
+            };
+
+            return hotkeysDict;
         }
 
         public bool IsFindMyMouseEnabled
@@ -259,7 +317,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
             set
             {
-                value = (value != null) ? SettingsUtilities.ToRGBHex(value) : "#000000";
+                value = (value != null) ? SettingsUtilities.ToARGBHex(value) : "#FF000000";
                 if (!value.Equals(_findMyMouseBackgroundColor, StringComparison.OrdinalIgnoreCase))
                 {
                     _findMyMouseBackgroundColor = value;
@@ -278,29 +336,11 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
             set
             {
-                value = (value != null) ? SettingsUtilities.ToRGBHex(value) : "#FFFFFF";
+                value = (value != null) ? SettingsUtilities.ToARGBHex(value) : "#FFFFFFFF";
                 if (!value.Equals(_findMyMouseSpotlightColor, StringComparison.OrdinalIgnoreCase))
                 {
                     _findMyMouseSpotlightColor = value;
                     FindMyMouseSettingsConfig.Properties.SpotlightColor.Value = value;
-                    NotifyFindMyMousePropertyChanged();
-                }
-            }
-        }
-
-        public int FindMyMouseOverlayOpacity
-        {
-            get
-            {
-                return _findMyMouseOverlayOpacity;
-            }
-
-            set
-            {
-                if (value != _findMyMouseOverlayOpacity)
-                {
-                    _findMyMouseOverlayOpacity = value;
-                    FindMyMouseSettingsConfig.Properties.OverlayOpacity.Value = value;
                     NotifyFindMyMousePropertyChanged();
                 }
             }
@@ -560,6 +600,78 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public bool IsSpotlightModeEnabled
+        {
+            get => _isSpotlightModeEnabled;
+            set
+            {
+                if (_isSpotlightModeEnabled != value)
+                {
+                    _isSpotlightModeEnabled = value;
+                    MouseHighlighterSettingsConfig.Properties.SpotlightMode.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsRippleModeEnabled
+        {
+            get => _isRippleModeEnabled;
+            set
+            {
+                if (_isRippleModeEnabled != value)
+                {
+                    _isRippleModeEnabled = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleMode.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        // ComboBox index for the highlight mode selector.
+        // 0 = Spotlight, 1 = Circle, 2 = Ripple
+        public int HighlightModeIndex
+        {
+            get
+            {
+                if (_isSpotlightModeEnabled)
+                {
+                    return 0;
+                }
+
+                return _isRippleModeEnabled ? 2 : 1;
+            }
+
+            set
+            {
+                bool spotlight = value == 0;
+                bool ripple = value == 2;
+                bool changed = false;
+
+                if (_isSpotlightModeEnabled != spotlight)
+                {
+                    _isSpotlightModeEnabled = spotlight;
+                    MouseHighlighterSettingsConfig.Properties.SpotlightMode.Value = spotlight;
+                    OnPropertyChanged(nameof(IsSpotlightModeEnabled));
+                    changed = true;
+                }
+
+                if (_isRippleModeEnabled != ripple)
+                {
+                    _isRippleModeEnabled = ripple;
+                    MouseHighlighterSettingsConfig.Properties.RippleMode.Value = ripple;
+                    OnPropertyChanged(nameof(IsRippleModeEnabled));
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    OnPropertyChanged(nameof(HighlightModeIndex));
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
         public int MouseHighlighterRadius
         {
             get
@@ -632,6 +744,76 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public int RippleSize
+        {
+            get => _rippleSize;
+            set
+            {
+                if (value != _rippleSize)
+                {
+                    _rippleSize = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleSize.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        public double RippleIntensity
+        {
+            get => _rippleIntensity;
+            set
+            {
+                if (value != _rippleIntensity)
+                {
+                    _rippleIntensity = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleIntensity.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        public int RippleDurationMs
+        {
+            get => _rippleDurationMs;
+            set
+            {
+                if (value != _rippleDurationMs)
+                {
+                    _rippleDurationMs = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleDurationMs.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        public bool RippleShowDragTrail
+        {
+            get => _rippleShowDragTrail;
+            set
+            {
+                if (value != _rippleShowDragTrail)
+                {
+                    _rippleShowDragTrail = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleShowDragTrail.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
+        public bool RippleShowReleasePulse
+        {
+            get => _rippleShowReleasePulse;
+            set
+            {
+                if (value != _rippleShowReleasePulse)
+                {
+                    _rippleShowReleasePulse = value;
+                    MouseHighlighterSettingsConfig.Properties.RippleShowReleasePulse.Value = value;
+                    NotifyMouseHighlighterPropertyChanged();
+                }
+            }
+        }
+
         public void NotifyMouseHighlighterPropertyChanged([CallerMemberName] string propertyName = null)
         {
             OnPropertyChanged(propertyName);
@@ -647,7 +829,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             get => _isMousePointerCrosshairsEnabled;
             set
             {
-                if (_mousePointerCrosshairsEnabledStateIsGPOConfigured)
+                if (_mousePointerCrosshairsEnabledStateGPOConfigured)
                 {
                     // If it's GPO configured, shouldn't be able to change this state.
                     return;
@@ -670,7 +852,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
 
         public bool IsMousePointerCrosshairsEnabledGpoConfigured
         {
-            get => _mousePointerCrosshairsEnabledStateIsGPOConfigured;
+            get => _mousePointerCrosshairsEnabledStateGPOConfigured;
         }
 
         public HotkeySettings MousePointerCrosshairsActivationShortcut
@@ -854,6 +1036,24 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public int MousePointerCrosshairsOrientation
+        {
+            get
+            {
+                return _mousePointerCrosshairsOrientation;
+            }
+
+            set
+            {
+                if (value != _mousePointerCrosshairsOrientation)
+                {
+                    _mousePointerCrosshairsOrientation = value;
+                    MousePointerCrosshairsSettingsConfig.Properties.CrosshairsOrientation.Value = value;
+                    NotifyMousePointerCrosshairsPropertyChanged();
+                }
+            }
+        }
+
         public bool MousePointerCrosshairsAutoActivate
         {
             get
@@ -872,6 +1072,49 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public int GlidingCursorTravelSpeed
+        {
+            get => MousePointerCrosshairsSettingsConfig.Properties.GlidingTravelSpeed.Value;
+            set
+            {
+                if (MousePointerCrosshairsSettingsConfig.Properties.GlidingTravelSpeed.Value != value)
+                {
+                    MousePointerCrosshairsSettingsConfig.Properties.GlidingTravelSpeed.Value = value;
+                    NotifyMousePointerCrosshairsPropertyChanged();
+                }
+            }
+        }
+
+        public int GlidingCursorDelaySpeed
+        {
+            get => MousePointerCrosshairsSettingsConfig.Properties.GlidingDelaySpeed.Value;
+            set
+            {
+                if (MousePointerCrosshairsSettingsConfig.Properties.GlidingDelaySpeed.Value != value)
+                {
+                    MousePointerCrosshairsSettingsConfig.Properties.GlidingDelaySpeed.Value = value;
+                    NotifyMousePointerCrosshairsPropertyChanged();
+                }
+            }
+        }
+
+        public HotkeySettings GlidingCursorActivationShortcut
+        {
+            get
+            {
+                return MousePointerCrosshairsSettingsConfig.Properties.GlidingCursorActivationShortcut;
+            }
+
+            set
+            {
+                if (MousePointerCrosshairsSettingsConfig.Properties.GlidingCursorActivationShortcut != value)
+                {
+                    MousePointerCrosshairsSettingsConfig.Properties.GlidingCursorActivationShortcut = value ?? MousePointerCrosshairsSettingsConfig.Properties.DefaultGlidingCursorActivationShortcut;
+                    NotifyMousePointerCrosshairsPropertyChanged();
+                }
+            }
+        }
+
         public void NotifyMousePointerCrosshairsPropertyChanged([CallerMemberName] string propertyName = null)
         {
             OnPropertyChanged(propertyName);
@@ -882,6 +1125,194 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             SettingsUtils.SaveSettings(MousePointerCrosshairsSettingsConfig.ToJsonString(), MousePointerCrosshairsSettings.ModuleName);
         }
 
+        public bool IsCursorWrapEnabled
+        {
+            get => _isCursorWrapEnabled;
+            set
+            {
+                if (_cursorWrapEnabledStateIsGPOConfigured)
+                {
+                    // If it's GPO configured, shouldn't be able to change this state.
+                    return;
+                }
+
+                if (_isCursorWrapEnabled != value)
+                {
+                    _isCursorWrapEnabled = value;
+
+                    GeneralSettingsConfig.Enabled.CursorWrap = value;
+                    OnPropertyChanged(nameof(IsCursorWrapEnabled));
+
+                    OutGoingGeneralSettings outgoing = new OutGoingGeneralSettings(GeneralSettingsConfig);
+                    SendConfigMSG(outgoing.ToString());
+
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsCursorWrapEnabledGpoConfigured
+        {
+            get => _cursorWrapEnabledStateIsGPOConfigured;
+        }
+
+        public HotkeySettings CursorWrapActivationShortcut
+        {
+            get
+            {
+                return CursorWrapSettingsConfig.Properties.ActivationShortcut;
+            }
+
+            set
+            {
+                if (CursorWrapSettingsConfig.Properties.ActivationShortcut != value)
+                {
+                    CursorWrapSettingsConfig.Properties.ActivationShortcut = value ?? CursorWrapSettingsConfig.Properties.DefaultActivationShortcut;
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public bool CursorWrapAutoActivate
+        {
+            get
+            {
+                return _cursorWrapAutoActivate;
+            }
+
+            set
+            {
+                if (value != _cursorWrapAutoActivate)
+                {
+                    _cursorWrapAutoActivate = value;
+                    CursorWrapSettingsConfig.Properties.AutoActivate.Value = value;
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public bool CursorWrapDisableWrapDuringDrag
+        {
+            get
+            {
+                return _cursorWrapDisableWrapDuringDrag;
+            }
+
+            set
+            {
+                if (value != _cursorWrapDisableWrapDuringDrag)
+                {
+                    _cursorWrapDisableWrapDuringDrag = value;
+
+                    // Ensure the property exists before setting value
+                    if (CursorWrapSettingsConfig.Properties.DisableWrapDuringDrag == null)
+                    {
+                        CursorWrapSettingsConfig.Properties.DisableWrapDuringDrag = new BoolProperty(value);
+                    }
+                    else
+                    {
+                        CursorWrapSettingsConfig.Properties.DisableWrapDuringDrag.Value = value;
+                    }
+
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public int CursorWrapWrapMode
+        {
+            get
+            {
+                return _cursorWrapWrapMode;
+            }
+
+            set
+            {
+                if (value != _cursorWrapWrapMode)
+                {
+                    _cursorWrapWrapMode = value;
+
+                    // Ensure the property exists before setting value
+                    if (CursorWrapSettingsConfig.Properties.WrapMode == null)
+                    {
+                        CursorWrapSettingsConfig.Properties.WrapMode = new IntProperty(value);
+                    }
+                    else
+                    {
+                        CursorWrapSettingsConfig.Properties.WrapMode.Value = value;
+                    }
+
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public int CursorWrapActivationMode
+        {
+            get
+            {
+                return _cursorWrapActivationMode;
+            }
+
+            set
+            {
+                if (value != _cursorWrapActivationMode)
+                {
+                    _cursorWrapActivationMode = value;
+
+                    // Ensure the property exists before setting value
+                    if (CursorWrapSettingsConfig.Properties.ActivationMode == null)
+                    {
+                        CursorWrapSettingsConfig.Properties.ActivationMode = new IntProperty(value);
+                    }
+                    else
+                    {
+                        CursorWrapSettingsConfig.Properties.ActivationMode.Value = value;
+                    }
+
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public bool CursorWrapDisableOnSingleMonitor
+        {
+            get
+            {
+                return _cursorWrapDisableOnSingleMonitor;
+            }
+
+            set
+            {
+                if (value != _cursorWrapDisableOnSingleMonitor)
+                {
+                    _cursorWrapDisableOnSingleMonitor = value;
+
+                    // Ensure the property exists before setting value
+                    if (CursorWrapSettingsConfig.Properties.DisableCursorWrapOnSingleMonitor == null)
+                    {
+                        CursorWrapSettingsConfig.Properties.DisableCursorWrapOnSingleMonitor = new BoolProperty(value);
+                    }
+                    else
+                    {
+                        CursorWrapSettingsConfig.Properties.DisableCursorWrapOnSingleMonitor.Value = value;
+                    }
+
+                    NotifyCursorWrapPropertyChanged();
+                }
+            }
+        }
+
+        public void NotifyCursorWrapPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            OnPropertyChanged(propertyName);
+
+            SndCursorWrapSettings outsettings = new SndCursorWrapSettings(CursorWrapSettingsConfig);
+            SndModuleSettings<SndCursorWrapSettings> ipcMessage = new SndModuleSettings<SndCursorWrapSettings>(outsettings);
+            SendConfigMSG(ipcMessage.ToJsonString());
+            SettingsUtils.SaveSettings(CursorWrapSettingsConfig.ToJsonString(), CursorWrapSettings.ModuleName);
+        }
+
         public void RefreshEnabledState()
         {
             InitializeEnabledValues();
@@ -889,6 +1320,7 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             OnPropertyChanged(nameof(IsMouseHighlighterEnabled));
             OnPropertyChanged(nameof(IsMouseJumpEnabled));
             OnPropertyChanged(nameof(IsMousePointerCrosshairsEnabled));
+            OnPropertyChanged(nameof(IsCursorWrapEnabled));
         }
 
         private Func<string, int> SendConfigMSG { get; }
@@ -901,7 +1333,6 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private bool _findMyMouseDoNotActivateOnGameMode;
         private string _findMyMouseBackgroundColor;
         private string _findMyMouseSpotlightColor;
-        private int _findMyMouseOverlayOpacity;
         private int _findMyMouseSpotlightRadius;
         private int _findMyMouseAnimationDurationMs;
         private int _findMyMouseSpotlightInitialZoom;
@@ -916,13 +1347,20 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private string _highlighterLeftButtonClickColor;
         private string _highlighterRightButtonClickColor;
         private string _highlighterAlwaysColor;
+        private bool _isSpotlightModeEnabled;
+        private bool _isRippleModeEnabled;
+        private int _rippleSize;
+        private double _rippleIntensity;
+        private int _rippleDurationMs;
+        private bool _rippleShowDragTrail;
+        private bool _rippleShowReleasePulse;
         private int _highlighterRadius;
         private int _highlightFadeDelayMs;
         private int _highlightFadeDurationMs;
         private bool _highlighterAutoActivate;
 
         private GpoRuleConfigured _mousePointerCrosshairsEnabledGpoRuleConfiguration;
-        private bool _mousePointerCrosshairsEnabledStateIsGPOConfigured;
+        private bool _mousePointerCrosshairsEnabledStateGPOConfigured;
         private bool _isMousePointerCrosshairsEnabled;
         private string _mousePointerCrosshairsColor;
         private int _mousePointerCrosshairsOpacity;
@@ -933,7 +1371,17 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private bool _mousePointerCrosshairsAutoHide;
         private bool _mousePointerCrosshairsIsFixedLengthEnabled;
         private int _mousePointerCrosshairsFixedLength;
+        private int _mousePointerCrosshairsOrientation;
         private bool _mousePointerCrosshairsAutoActivate;
         private bool _isAnimationEnabledBySystem;
+
+        private GpoRuleConfigured _cursorWrapEnabledGpoRuleConfiguration;
+        private bool _cursorWrapEnabledStateIsGPOConfigured;
+        private bool _isCursorWrapEnabled;
+        private bool _cursorWrapAutoActivate;
+        private bool _cursorWrapDisableWrapDuringDrag; // Will be initialized in constructor from settings
+        private int _cursorWrapWrapMode; // 0=Both, 1=VerticalOnly, 2=HorizontalOnly
+        private int _cursorWrapActivationMode; // 0=Always, 1=HoldingCtrl (wraps only while held), 2=HoldingShift (wraps only while held)
+        private bool _cursorWrapDisableOnSingleMonitor; // Disable cursor wrap when only one monitor is connected
     }
 }

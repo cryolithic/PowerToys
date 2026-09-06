@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation
+// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -18,19 +18,28 @@ public record PerformCommandMessage
 
     public bool WithAnimation { get; set; } = true;
 
-    public CommandPaletteHost? ExtensionHost { get; private set; }
+    public bool TransientPage { get; set; }
+
+    /// <summary>
+    /// Optional callback raised by <see cref="ShellViewModel"/> just before a
+    /// <see cref="ShowConfirmationMessage"/> is dispatched for this command's
+    /// result. Lets the sender prepare UI (for example, the dock uses this to
+    /// open the cmdpal window anchored at the invoking dock item so that the
+    /// confirmation dialog appears in the right place).
+    /// </summary>
+    public Action? OnBeforeShowConfirmation { get; set; }
+
+    /// <summary>
+    /// When set, and the command turns out to be a page, the main window is
+    /// summoned before navigating. Used by senders that run while the palette
+    /// is hidden (for example the toast's action button).
+    /// </summary>
+    public bool ShowWindowIfPage { get; set; }
 
     public PerformCommandMessage(ExtensionObject<ICommand> command)
     {
         Command = command;
         Context = null;
-    }
-
-    public PerformCommandMessage(TopLevelViewModel topLevelCommand)
-    {
-        Command = topLevelCommand.CommandViewModel.Model;
-        Context = null;
-        ExtensionHost = topLevelCommand.ExtensionHost;
     }
 
     public PerformCommandMessage(ExtensionObject<ICommand> command, ExtensionObject<IListItem> context)
@@ -49,6 +58,12 @@ public record PerformCommandMessage
     {
         Command = command;
         Context = context.Unsafe;
+    }
+
+    public PerformCommandMessage(CommandContextItemViewModel contextCommand)
+    {
+        Command = contextCommand.Command.Model;
+        Context = contextCommand.Model.Unsafe;
     }
 
     public PerformCommandMessage(ConfirmResultViewModel vm)

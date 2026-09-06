@@ -7,11 +7,13 @@ namespace ManagedCommon
     public enum ModuleType
     {
         AdvancedPaste,
+        AltWindowCycle,
         AlwaysOnTop,
         Awake,
         ColorPicker,
         CmdPal,
         CropAndLock,
+        CursorWrap,
         EnvironmentVariables,
         FancyZones,
         FileLocksmith,
@@ -19,6 +21,7 @@ namespace ManagedCommon
         Hosts,
         ImageResizer,
         KeyboardManager,
+        LightSwitch,
         MouseHighlighter,
         MouseJump,
         MousePointerCrosshairs,
@@ -28,11 +31,14 @@ namespace ManagedCommon
         PowerRename,
         PowerLauncher,
         PowerAccent,
+        PowerDisplay,
         RegistryPreview,
         MeasureTool,
         ShortcutGuide,
         PowerOCR,
         Workspaces,
+        GrabAndMove,
         ZoomIt,
+        GeneralSettings,
     }
 }

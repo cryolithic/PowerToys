@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Look at Directory.Build.props in root for common stuff as well -->
-  <Import Project="..\..\..\Common.Dotnet.CsWinRT.props" />
+  <Import Project="$(RepoRoot)src\Common.Dotnet.CsWinRT.props" />
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
@@ -15,8 +15,6 @@
     <ProjectPriFileName>PowerToys.EnvironmentVariablesUILib.pri</ProjectPriFileName>
     <GenerateLibraryLayout>true</GenerateLibraryLayout>
     <IsPackable>true</IsPackable>
-    <!-- The default generated file path exceeds the length limit 260 on the build agent. Using a shorter path as a workaround. -->
-    <CompilerGeneratedFilesOutputPath>$(ProjectDir)obj\g</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -51,12 +49,13 @@
     <PackageReference Include="CommunityToolkit.WinUI.Converters" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
     <PackageReference Include="System.IO.Abstractions" />
-    <!-- HACK: To make sure the version pulled in by Microsoft.Extensions.Hosting is current. -->
-    <PackageReference Include="System.Text.Json" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
-  <Target Name="EnsureCompilerGeneratedFilesOutputPathExists" BeforeTargets="XamlPreCompile">
-    <MakeDir Directories="$(CompilerGeneratedFilesOutputPath)" />
-  </Target>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>EnvironmentVariablesUILib.UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

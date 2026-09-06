@@ -4,7 +4,6 @@
 #include <compare>
 #include <tuple>
 #include <variant>
-
 namespace KeyboardManagerInput
 {
     class InputInterface;
@@ -40,7 +39,8 @@ public:
     {
         RemapShortcut = 0,
         RunProgram = 1,
-        OpenURI = 2
+        OpenURI = 2,
+        RemapText = 3
     };
 
     enum StartWindowType
@@ -48,7 +48,7 @@ public:
         Normal = 0,
         Hidden = 1,
         Minimized = 2,
-        Maximized = 2
+        Maximized = 3
     };
 
     enum ProgramAlreadyRunningAction
@@ -142,13 +142,13 @@ public:
     DWORD GetWinKey(const ModifierKey& input) const;
 
     // Function to return the virtual key code of the ctrl key state expected in the shortcut. Return NULL if it is not a part of the shortcut
-    DWORD GetCtrlKey() const;
+    DWORD GetCtrlKey(const ModifierKey& input) const;
 
     // Function to return the virtual key code of the alt key state expected in the shortcut. Return NULL if it is not a part of the shortcut
-    DWORD GetAltKey() const;
+    DWORD GetAltKey(const ModifierKey& input) const;
 
     // Function to return the virtual key code of the shift key state expected in the shortcut. Return NULL if it is not a part of the shortcut
-    DWORD GetShiftKey() const;
+    DWORD GetShiftKey(const ModifierKey& input) const;
 
     // Function to check if the input key matches the win key expected in the shortcut
     bool CheckWinKey(const DWORD input) const;

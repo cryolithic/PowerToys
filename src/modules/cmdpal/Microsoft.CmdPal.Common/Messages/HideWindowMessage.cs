@@ -4,6 +4,7 @@
 
 namespace Microsoft.CmdPal.Common.Messages;
 
-public record HideWindowMessage()
-{
-}
+/// <summary>
+/// Message to request hiding the window.
+/// </summary>
+public sealed partial record HideWindowMessage;

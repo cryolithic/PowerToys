@@ -2,8 +2,10 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Diagnostics;
 using System.IO;
+using ManagedCommon;
 
 namespace Common.UI
 {
@@ -11,26 +13,34 @@ namespace Common.UI
     {
         public enum SettingsWindow
         {
-            Overview = 0,
+            Dashboard = 0,
+            Overview,
+            AlwaysOnTop,
             Awake,
             ColorPicker,
+            CmdNotFound,
+            LightSwitch,
             FancyZones,
-            Run,
+            FileLocksmith,
             ImageResizer,
             KBM,
             MouseUtils,
+            MouseWithoutBorders,
+            Peek,
+            PowerAccent,
+            PowerLauncher,
             PowerRename,
             FileExplorer,
             ShortcutGuide,
             Hosts,
             MeasureTool,
             PowerOCR,
+            Workspaces,
             RegistryPreview,
             CropAndLock,
             EnvironmentVariables,
-            Dashboard,
             AdvancedPaste,
-            Workspaces,
+            NewPlus,
             CmdPal,
             ZoomIt,
         }
@@ -39,22 +49,38 @@ namespace Common.UI
         {
             switch (value)
             {
+                case SettingsWindow.Dashboard:
+                    return "Dashboard";
                 case SettingsWindow.Overview:
                     return "Overview";
+                case SettingsWindow.AlwaysOnTop:
+                    return "AlwaysOnTop";
                 case SettingsWindow.Awake:
                     return "Awake";
                 case SettingsWindow.ColorPicker:
                     return "ColorPicker";
+                case SettingsWindow.CmdNotFound:
+                    return "CmdNotFound";
+                case SettingsWindow.LightSwitch:
+                    return "LightSwitch";
                 case SettingsWindow.FancyZones:
                     return "FancyZones";
-                case SettingsWindow.Run:
-                    return "Run";
+                case SettingsWindow.FileLocksmith:
+                    return "FileLocksmith";
                 case SettingsWindow.ImageResizer:
                     return "ImageResizer";
                 case SettingsWindow.KBM:
                     return "KBM";
                 case SettingsWindow.MouseUtils:
                     return "MouseUtils";
+                case SettingsWindow.MouseWithoutBorders:
+                    return "MouseWithoutBorders";
+                case SettingsWindow.Peek:
+                    return "Peek";
+                case SettingsWindow.PowerAccent:
+                    return "PowerAccent";
+                case SettingsWindow.PowerLauncher:
+                    return "PowerLauncher";
                 case SettingsWindow.PowerRename:
                     return "PowerRename";
                 case SettingsWindow.FileExplorer:
@@ -67,18 +93,18 @@ namespace Common.UI
                     return "MeasureTool";
                 case SettingsWindow.PowerOCR:
                     return "PowerOcr";
+                case SettingsWindow.Workspaces:
+                    return "Workspaces";
                 case SettingsWindow.RegistryPreview:
                     return "RegistryPreview";
                 case SettingsWindow.CropAndLock:
                     return "CropAndLock";
                 case SettingsWindow.EnvironmentVariables:
                     return "EnvironmentVariables";
-                case SettingsWindow.Dashboard:
-                    return "Dashboard";
                 case SettingsWindow.AdvancedPaste:
                     return "AdvancedPaste";
-                case SettingsWindow.Workspaces:
-                    return "Workspaces";
+                case SettingsWindow.NewPlus:
+                    return "NewPlus";
                 case SettingsWindow.CmdPal:
                     return "CmdPal";
                 case SettingsWindow.ZoomIt:
@@ -90,28 +116,33 @@ namespace Common.UI
             }
         }
 
-        public static void OpenSettings(SettingsWindow window, bool mainExecutableIsOnTheParentFolder)
+        // What about debug build? Should also consider debug build, maybe tray window message?
+        public static void OpenSettings(SettingsWindow window)
         {
             try
             {
-                var directoryPath = System.AppContext.BaseDirectory;
-                if (mainExecutableIsOnTheParentFolder)
+                var exePath = Path.Combine(
+                    PowerToysPathResolver.GetPowerToysInstallPath(),
+                    "PowerToys.exe");
+
+                if (exePath == null || !File.Exists(exePath))
                 {
-                    // Need to go into parent folder for PowerToys.exe. Likely a WinUI3 App SDK application.
-                    directoryPath = Path.Combine(directoryPath, "..");
-                    directoryPath = Path.Combine(directoryPath, "PowerToys.exe");
-                }
-                else
-                {
-                    // PowerToys.exe is in the same path as the application.
-                    directoryPath = Path.Combine(directoryPath, "PowerToys.exe");
+                    Logger.LogError($"Failed to find powertoys exe path, {exePath}");
+                    return;
                 }
 
-                Process.Start(new ProcessStartInfo(directoryPath) { Arguments = "--open-settings=" + SettingsWindowNameToString(window) });
+                var args = "--open-settings=" + SettingsWindowNameToString(window);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = args,
+                    UseShellExecute = false,
+                });
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO(stefan): Log exception once unified logging is implemented
+                Logger.LogError(ex.Message);
             }
         }
     }

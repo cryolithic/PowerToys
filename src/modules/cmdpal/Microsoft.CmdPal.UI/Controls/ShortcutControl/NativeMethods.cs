@@ -4,10 +4,11 @@
 
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.CmdPal.UI.Library;
 
 namespace Microsoft.PowerToys.Settings.UI.Helpers;
 
-public static class NativeMethods
+public static partial class NativeMethods
 {
     private const int WS_POPUP = 1 << 31; // 0x80000000
     internal const int GWL_STYLE = -16;
@@ -26,11 +27,11 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern bool GetWindowPlacement(IntPtr hWnd, out WINDOWPLACEMENT lpwndpl);
 
-    [DllImport("user32.dll")]
-    internal static extern uint SendInput(uint nInputs, NativeKeyboardHelper.INPUT[] pInputs, int cbSize);
+    [LibraryImport("user32.dll")]
+    internal static partial uint SendInput(uint nInputs, NativeKeyboardHelper.INPUT[] pInputs, int cbSize);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall, SetLastError = true)]
-    internal static extern short GetAsyncKeyState(int vKey);
+    [LibraryImport("user32.dll")]
+    internal static partial short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern int GetWindowLong(IntPtr hWnd, int nIndex);

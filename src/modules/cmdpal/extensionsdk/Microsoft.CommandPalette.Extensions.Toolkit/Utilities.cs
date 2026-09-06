@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation
+// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -37,7 +37,7 @@ public class Utilities
         var FOLDERID_LocalAppData = new Guid("F1B32785-6FBA-4FCF-9D55-7B8E7F157091");
         var hr = PInvoke.SHGetKnownFolderPath(
             FOLDERID_LocalAppData,
-            (uint)KNOWN_FOLDER_FLAG.KF_FLAG_FORCE_APP_DATA_REDIRECTION,
+            KNOWN_FOLDER_FLAG.KF_FLAG_FORCE_APP_DATA_REDIRECTION,
             null,
             out var localAppDataFolder);
 
@@ -75,7 +75,7 @@ public class Utilities
                 // We don't actually need the package ID. We just need to know
                 // if we have a package or not, and APPMODEL_ERROR_NO_PACKAGE
                 // is a quick way to find out.
-                var win32Error = PInvoke.GetCurrentPackageId(ref bufferSize, p);
+                var win32Error = PInvoke.GetCurrentPackageId(ref bufferSize, bytes);
                 return win32Error != APPMODEL_ERROR_NO_PACKAGE;
             }
         }

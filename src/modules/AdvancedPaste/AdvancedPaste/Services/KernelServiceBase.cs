@@ -5,15 +5,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using AdvancedPaste.Helpers;
 using AdvancedPaste.Models;
 using AdvancedPaste.Models.KernelQueryCache;
+using AdvancedPaste.Services.CustomActions;
+using AdvancedPaste.Settings;
 using AdvancedPaste.Telemetry;
 using ManagedCommon;
+using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Telemetry;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -21,27 +22,34 @@ using Windows.ApplicationModel.DataTransfer;
 
 namespace AdvancedPaste.Services;
 
-public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheService, IPromptModerationService promptModerationService, ICustomTextTransformService customTextTransformService) : IKernelService
+public abstract class KernelServiceBase(
+    IKernelQueryCacheService queryCacheService,
+    IPromptModerationService promptModerationService,
+    IUserSettings userSettings,
+    ICustomActionTransformService customActionTransformService) : IKernelService
 {
     private const string PromptParameterName = "prompt";
+    private const string DefaultSystemPrompt = "You are an agent who is tasked with helping users paste their clipboard data. You have functions available to help you with this task. Call function when necessary to help user finish the transformation task. You never need to ask permission, always try to do as the user asks. The user will only input one message and will not be available for further questions, so try your best. The user will put in a request to format their clipboard data and you will fulfill it. Do not output anything else besides the reformatted clipboard content.";
 
     private readonly IKernelQueryCacheService _queryCacheService = queryCacheService;
     private readonly IPromptModerationService _promptModerationService = promptModerationService;
-    private readonly ICustomTextTransformService _customTextTransformService = customTextTransformService;
+    private readonly IUserSettings _userSettings = userSettings;
+    private readonly ICustomActionTransformService _customActionTransformService = customActionTransformService;
 
-    protected abstract string ModelName { get; }
+    protected abstract PromptExecutionSettings GetPromptExecutionSettings(IKernelRuntimeConfiguration runtimeConfig);
 
-    protected abstract PromptExecutionSettings PromptExecutionSettings { get; }
-
-    protected abstract void AddChatCompletionService(IKernelBuilder kernelBuilder);
+    protected abstract void AddChatCompletionService(IKernelBuilder kernelBuilder, IKernelRuntimeConfiguration runtimeConfig);
 
     protected abstract AIServiceUsage GetAIServiceUsage(ChatMessageContent chatMessage);
 
-    public async Task<DataPackage> TransformClipboardAsync(string prompt, DataPackageView clipboardData, bool isSavedQuery, CancellationToken cancellationToken, IProgress<double> progress)
+    protected abstract IKernelRuntimeConfiguration GetRuntimeConfiguration(string providerIdOverride);
+
+    public async Task<DataPackage> TransformClipboardAsync(string prompt, DataPackageView clipboardData, bool isSavedQuery, CancellationToken cancellationToken, IProgress<double> progress, string providerIdOverride = null)
     {
         Logger.LogTrace();
 
-        var kernel = CreateKernel();
+        var runtimeConfig = GetRuntimeConfiguration(providerIdOverride);
+        var kernel = CreateKernel(runtimeConfig);
         kernel.SetDataPackageView(clipboardData);
         kernel.SetCancellationToken(cancellationToken);
         kernel.SetProgress(progress);
@@ -54,16 +62,40 @@ public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheServi
 
         try
         {
-            (chatHistory, var usage) = cacheUsed ? await ExecuteCachedActionChain(kernel, maybeCacheValue.ActionChain) : await ExecuteAICompletion(kernel, prompt, cancellationToken);
+            (chatHistory, var usage) = cacheUsed ? await ExecuteCachedActionChain(kernel, maybeCacheValue.ActionChain) : await ExecuteAICompletion(kernel, prompt, runtimeConfig, cancellationToken);
 
-            LogResult(cacheUsed, isSavedQuery, kernel.GetOrAddActionChain(), usage);
+            LogResult(cacheUsed, isSavedQuery, kernel.GetOrAddActionChain(), usage, runtimeConfig);
+
+            var outputPackage = kernel.GetDataPackage();
+            var hasUsableData = await outputPackage.GetView().HasUsableDataAsync();
 
             if (kernel.GetLastError() is Exception ex)
             {
-                throw ex;
+                // If we have an error, but the AI provided a final text response, we can ignore the error (likely a tool failure that the AI handled).
+                // However, if we have usable data (e.g. from a successful tool call before the error?), we might want to keep it?
+                // In the case of ImageToText failure, outputPackage is empty (new DataPackage), hasUsableData is false.
+                // So we check if there is a valid response in the chat history.
+                var lastMessage = chatHistory.LastOrDefault();
+                bool hasAssistantResponse = lastMessage != null && lastMessage.Role == AuthorRole.Assistant && !string.IsNullOrEmpty(lastMessage.Content);
+
+                if (!hasAssistantResponse && !hasUsableData)
+                {
+                    throw ex;
+                }
+
+                // If we have a response or data, we log the error but proceed.
+                Logger.LogWarning($"Kernel operation encountered an error but proceeded with available response/data: {ex.Message}");
             }
 
-            var outputPackage = kernel.GetDataPackage();
+            if (!hasUsableData)
+            {
+                var lastMessage = chatHistory.LastOrDefault();
+                if (lastMessage != null && lastMessage.Role == AuthorRole.Assistant && !string.IsNullOrEmpty(lastMessage.Content))
+                {
+                    outputPackage = DataPackageHelpers.CreateFromText(lastMessage.Content);
+                    kernel.SetDataPackage(outputPackage);
+                }
+            }
 
             if (!(await outputPackage.GetView().HasUsableDataAsync()))
             {
@@ -130,24 +162,36 @@ public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheServi
         return $"{combinedSystemMessage}{newLine}{newLine}User instructions:{newLine}{userPromptMessage.Content}";
     }
 
-    private async Task<(ChatHistory ChatHistory, AIServiceUsage Usage)> ExecuteAICompletion(Kernel kernel, string prompt, CancellationToken cancellationToken)
+    private async Task<(ChatHistory ChatHistory, AIServiceUsage Usage)> ExecuteAICompletion(Kernel kernel, string prompt, IKernelRuntimeConfiguration runtimeConfig, CancellationToken cancellationToken)
     {
         ChatHistory chatHistory = [];
 
-        chatHistory.AddSystemMessage("""
-                You are an agent who is tasked with helping users paste their clipboard data. You have functions available to help you with this task.
-                You never need to ask permission, always try to do as the user asks. The user will only input one message and will not be available for further questions, so try your best.
-                The user will put in a request to format their clipboard data and you will fulfill it.
-                You will not directly see the output clipboard content, and do not need to provide it in the chat. You just need to do the transform operations as needed.
-                If you are unable to fulfill the request, end with an error message in the language of the user's request.
-                """);
+        var systemPrompt = string.IsNullOrWhiteSpace(runtimeConfig.SystemPrompt) ? DefaultSystemPrompt : runtimeConfig.SystemPrompt;
+        chatHistory.AddSystemMessage(systemPrompt);
         chatHistory.AddSystemMessage($"Available clipboard formats: {await kernel.GetDataFormatsAsync()}");
-        chatHistory.AddUserMessage(prompt);
 
-        await _promptModerationService.ValidateAsync(GetFullPrompt(chatHistory), cancellationToken);
+        var imageBytes = await kernel.GetDataPackageView().GetImageAsPngBytesAsync();
+        if (imageBytes != null)
+        {
+            var collection = new ChatMessageContentItemCollection
+            {
+                new TextContent(prompt),
+                new ImageContent(imageBytes, "image/png"),
+            };
+            chatHistory.AddUserMessage(collection);
+        }
+        else
+        {
+            chatHistory.AddUserMessage(prompt);
+        }
 
-        var chatResult = await kernel.GetRequiredService<IChatCompletionService>()
-                                     .GetChatMessageContentAsync(chatHistory, PromptExecutionSettings, kernel, cancellationToken);
+        if (ShouldModerateAdvancedAI(runtimeConfig))
+        {
+            await _promptModerationService.ValidateAsync(GetFullPrompt(chatHistory), cancellationToken);
+        }
+
+        var chatResult = await kernel.GetRequiredService<IChatCompletionService>(runtimeConfig.ModelName)
+                                     .GetChatMessageContentAsync(chatHistory, GetPromptExecutionSettings(runtimeConfig), kernel, cancellationToken);
         chatHistory.Add(chatResult);
 
         var totalUsage = chatHistory.Select(GetAIServiceUsage)
@@ -175,36 +219,134 @@ public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheServi
         return ([], AIServiceUsage.None);
     }
 
-    private void LogResult(bool cacheUsed, bool isSavedQuery, IEnumerable<ActionChainItem> actionChain, AIServiceUsage usage)
+    protected IUserSettings UserSettings => _userSettings;
+
+    private void LogResult(bool cacheUsed, bool isSavedQuery, IEnumerable<ActionChainItem> actionChain, AIServiceUsage usage, IKernelRuntimeConfiguration runtimeConfig)
     {
-        AdvancedPasteSemanticKernelFormatEvent telemetryEvent = new(cacheUsed, isSavedQuery, usage.PromptTokens, usage.CompletionTokens, ModelName, AdvancedPasteSemanticKernelFormatEvent.FormatActionChain(actionChain));
+        AdvancedPasteSemanticKernelFormatEvent telemetryEvent = new(
+            cacheUsed,
+            isSavedQuery,
+            usage.PromptTokens,
+            usage.CompletionTokens,
+            runtimeConfig.ModelName,
+            runtimeConfig.ServiceType.ToString(),
+            AdvancedPasteSemanticKernelFormatEvent.FormatActionChain(actionChain));
         PowerToysTelemetry.Log.WriteEvent(telemetryEvent);
+
+        // Log endpoint usage
+        var endpointEvent = new AdvancedPasteEndpointUsageEvent(runtimeConfig.ServiceType, runtimeConfig.ModelName, isAdvanced: true);
+        PowerToysTelemetry.Log.WriteEvent(endpointEvent);
+
         var logEvent = new AIServiceFormatEvent(telemetryEvent);
         Logger.LogDebug($"{nameof(TransformClipboardAsync)} complete; {logEvent.ToJsonString()}");
     }
 
-    private Kernel CreateKernel()
+    private Kernel CreateKernel(IKernelRuntimeConfiguration runtimeConfig)
     {
         var kernelBuilder = Kernel.CreateBuilder();
-        AddChatCompletionService(kernelBuilder);
+        AddChatCompletionService(kernelBuilder, runtimeConfig);
         kernelBuilder.Plugins.AddFromFunctions("Actions", GetKernelFunctions());
         return kernelBuilder.Build();
     }
 
-    private IEnumerable<KernelFunction> GetKernelFunctions() =>
-        from format in Enum.GetValues<PasteFormats>()
-        let metadata = PasteFormat.MetadataDict[format]
-        let coreDescription = metadata.KernelFunctionDescription
-        where !string.IsNullOrEmpty(coreDescription)
-        let requiresPrompt = metadata.RequiresPrompt
-        orderby requiresPrompt descending
-        select KernelFunctionFactory.CreateFromMethod(
-            method: requiresPrompt ? async (Kernel kernel, string prompt) => await ExecutePromptTransformAsync(kernel, format, prompt)
-                                   : async (Kernel kernel) => await ExecuteStandardTransformAsync(kernel, format),
-            functionName: format.ToString(),
-            description: requiresPrompt ? coreDescription : $"{coreDescription} Puts the result back on the clipboard.",
-            parameters: requiresPrompt ? [new(PromptParameterName) { Description = "Input instructions to AI", ParameterType = typeof(string) }] : null,
-            returnParameter: new() { Description = "Array of available clipboard formats after operation" });
+    private IEnumerable<KernelFunction> GetKernelFunctions()
+    {
+        // Get standard format functions
+        var standardFunctions =
+            from format in Enum.GetValues<PasteFormats>()
+            let metadata = PasteFormat.MetadataDict[format]
+            let coreDescription = metadata.KernelFunctionDescription
+            where !string.IsNullOrEmpty(coreDescription)
+            let requiresPrompt = metadata.RequiresPrompt
+            orderby requiresPrompt descending
+            select KernelFunctionFactory.CreateFromMethod(
+                method: requiresPrompt ? async (Kernel kernel, string prompt) => await ExecutePromptTransformAsync(kernel, format, prompt)
+                                       : async (Kernel kernel) => await ExecuteStandardTransformAsync(kernel, format),
+                functionName: format.ToString(),
+                description: requiresPrompt ? coreDescription : $"{coreDescription} Puts the result back on the clipboard.",
+                parameters: requiresPrompt ? [new(PromptParameterName) { Description = "Input instructions to AI", ParameterType = typeof(string) }] : null,
+                returnParameter: new() { Description = "Array of available clipboard formats after operation" });
+
+        HashSet<string> usedFunctionNames = new(Enum.GetNames<PasteFormats>(), StringComparer.OrdinalIgnoreCase);
+
+        // Get custom action functions
+        var customActionFunctions = _userSettings.CustomActions
+            .Where(customAction => !string.IsNullOrWhiteSpace(customAction.Name) && !string.IsNullOrWhiteSpace(customAction.Prompt))
+            .Select(customAction =>
+            {
+                var sanitizedBaseName = SanitizeFunctionName(customAction.Name);
+                var functionName = GetUniqueFunctionName(sanitizedBaseName, usedFunctionNames, customAction.Id);
+                var description = string.IsNullOrWhiteSpace(customAction.Description)
+                    ? $"Runs the \"{customAction.Name}\" custom action."
+                    : customAction.Description;
+                return KernelFunctionFactory.CreateFromMethod(
+                    method: async (Kernel kernel) => await ExecuteCustomActionAsync(kernel, customAction.Prompt),
+                    functionName: functionName,
+                    description: description,
+                    parameters: null,
+                    returnParameter: new() { Description = "Array of available clipboard formats after operation" });
+            });
+
+        return standardFunctions.Concat(customActionFunctions);
+    }
+
+    private static string GetUniqueFunctionName(string baseName, HashSet<string> usedFunctionNames, int customActionId)
+    {
+        ArgumentNullException.ThrowIfNull(usedFunctionNames);
+
+        var candidate = string.IsNullOrEmpty(baseName) ? "_CustomAction" : baseName;
+
+        if (usedFunctionNames.Add(candidate))
+        {
+            return candidate;
+        }
+
+        int suffix = 1;
+        while (true)
+        {
+            var nextCandidate = $"{candidate}_{customActionId}_{suffix}";
+            if (usedFunctionNames.Add(nextCandidate))
+            {
+                return nextCandidate;
+            }
+
+            suffix++;
+        }
+    }
+
+    private static string SanitizeFunctionName(string name)
+    {
+        // Remove invalid characters and ensure the function name is valid for kernel
+        var sanitized = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
+
+        // Ensure it starts with a letter or underscore
+        if (sanitized.Length > 0 && !char.IsLetter(sanitized[0]) && sanitized[0] != '_')
+        {
+            sanitized = "_" + sanitized;
+        }
+
+        // Ensure it's not empty
+        return string.IsNullOrEmpty(sanitized) ? "_CustomAction" : sanitized;
+    }
+
+    private Task<string> ExecuteCustomActionAsync(Kernel kernel, string fixedPrompt) =>
+        ExecuteTransformAsync(
+            kernel,
+            new ActionChainItem(PasteFormats.CustomTextTransformation, Arguments: new() { { PromptParameterName, fixedPrompt } }),
+            async dataPackageView =>
+            {
+                var imageBytes = await dataPackageView.GetImageAsPngBytesAsync();
+                var input = await dataPackageView.GetTextOrHtmlTextAsync();
+
+                if (string.IsNullOrEmpty(input) && imageBytes == null)
+                {
+                    // If we have no text and no image, try to get text via OCR or throw if nothing exists
+                    input = await dataPackageView.GetClipboardTextOrThrowAsync(kernel.GetCancellationToken());
+                }
+
+                var result = await _customActionTransformService.TransformAsync(fixedPrompt, input, imageBytes, kernel.GetCancellationToken(), kernel.GetProgress());
+                return DataPackageHelpers.CreateFromText(result?.Content ?? string.Empty);
+            });
 
     private Task<string> ExecutePromptTransformAsync(Kernel kernel, PasteFormats format, string prompt) =>
         ExecuteTransformAsync(
@@ -212,15 +354,22 @@ public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheServi
             new ActionChainItem(format, Arguments: new() { { PromptParameterName, prompt } }),
             async dataPackageView =>
             {
-                var input = await dataPackageView.GetTextAsync();
-                string output = await GetPromptBasedOutput(format, prompt, input, kernel.GetCancellationToken(), kernel.GetProgress());
+                var imageBytes = await dataPackageView.GetImageAsPngBytesAsync();
+                var input = await dataPackageView.GetTextOrHtmlTextAsync();
+
+                if (string.IsNullOrEmpty(input) && imageBytes == null)
+                {
+                    input = await dataPackageView.GetClipboardTextOrThrowAsync(kernel.GetCancellationToken());
+                }
+
+                string output = await GetPromptBasedOutput(format, prompt, input, imageBytes, kernel.GetCancellationToken(), kernel.GetProgress());
                 return DataPackageHelpers.CreateFromText(output);
             });
 
-    private async Task<string> GetPromptBasedOutput(PasteFormats format, string prompt, string input, CancellationToken cancellationToken, IProgress<double> progress) =>
+    private async Task<string> GetPromptBasedOutput(PasteFormats format, string prompt, string input, byte[] imageBytes, CancellationToken cancellationToken, IProgress<double> progress) =>
         format switch
         {
-            PasteFormats.CustomTextTransformation => await _customTextTransformService.TransformTextAsync(prompt, input, cancellationToken, progress),
+            PasteFormats.CustomTextTransformation => (await _customActionTransformService.TransformAsync(prompt, input, imageBytes, cancellationToken, progress))?.Content ?? string.Empty,
             _ => throw new ArgumentException($"Unsupported format {format} for prompt transform", nameof(format)),
         };
 
@@ -280,5 +429,10 @@ public abstract class KernelServiceBase(IKernelQueryCacheService queryCacheServi
         var usage = GetAIServiceUsage(chatMessage);
         var usageString = usage.HasUsage ? $" [{usage}]" : string.Empty;
         return $"-> {role}: {redactedContent}{usageString}";
+    }
+
+    protected virtual bool ShouldModerateAdvancedAI(IKernelRuntimeConfiguration runtimeConfig)
+    {
+        return false;
     }
 }
